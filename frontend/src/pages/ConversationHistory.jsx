@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 const mockConversations = [
@@ -51,6 +52,7 @@ const mockConversations = [
 const statusOptions = ['All', 'Resolved', 'Review', 'Pending'];
 
 const ConversationHistory = () => {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [sortOrder, setSortOrder] = useState('desc');
@@ -75,6 +77,13 @@ const ConversationHistory = () => {
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.08),transparent_18%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.05),transparent_22%),linear-gradient(180deg,#040612_0%,#090f1d_45%,#07101b_100%)] text-slate-100">
       <div className="mx-auto flex min-h-screen max-w-[1200px] flex-col px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-6 rounded-[28px] border border-white/10 bg-slate-950/95 p-6 shadow-[0_40px_120px_-80px_rgba(0,0,0,0.6)] backdrop-blur-xl">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
+          >
+            ← Back
+          </button>
           <p className="text-xs uppercase tracking-[0.35em] text-sky-400">Conversation History</p>
           <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Review all past AI interactions</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">

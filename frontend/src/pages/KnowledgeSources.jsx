@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 const mockSources = [
@@ -33,16 +34,21 @@ const mockSources = [
 ];
 
 const KnowledgeSources = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [dragActive, setDragActive] = useState(false);
+  const [sources, setSources] = useState(mockSources);
+  const [previewSource, setPreviewSource] = useState(null);
+  const [uploadMessage, setUploadMessage] = useState('');
+  const fileInputRef = useRef(null);
 
   const filteredSources = useMemo(
     () =>
-      mockSources.filter((source) =>
+      sources.filter((source) =>
         source.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         source.type.toLowerCase().includes(searchTerm.toLowerCase()),
       ),
-    [searchTerm],
+    [searchTerm, sources],
   );
 
   const handleDragOver = (event) => {
@@ -54,10 +60,38 @@ const KnowledgeSources = () => {
     setDragActive(false);
   };
 
+  const handleFileSelection = (files) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const newSource = {
+      id: `KS-${Date.now()}`,
+      name: file.name,
+      type: file.name.split('.').pop().toUpperCase(),
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      icon: '📄',
+      content: `Preview content for ${file.name}.`,
+    };
+
+    setSources((prev) => [newSource, ...prev]);
+    setUploadMessage(`Uploaded ${file.name} successfully.`);
+  };
+
   const handleDrop = (event) => {
     event.preventDefault();
     setDragActive(false);
-    // Mock upload - no backend implementation.
+    handleFileSelection(event.dataTransfer.files);
+  };
+
+  const handleUploadButton = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handlePreview = (source) => {
+    setPreviewSource(source);
+  };
+
+  const handleClosePreview = () => {
+    setPreviewSource(null);
   };
 
   return (
@@ -66,15 +100,36 @@ const KnowledgeSources = () => {
         <div className="mb-6 rounded-[28px] border border-white/10 bg-slate-950/95 p-6 shadow-[0_40px_120px_-80px_rgba(0,0,0,0.6)] backdrop-blur-xl">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-400/50 focus:ring-offset-2 focus:ring-offset-slate-950 active:bg-slate-900"
+              >
+                ← Back
+              </button>
               <p className="text-xs uppercase tracking-[0.35em] text-sky-400">Knowledge Sources</p>
-              <h1 className="mt-2 text-3xl font-semibold text-white sm:text-4xl">Manage your uploaded documents</h1>
+              <h2 className="mt-2 text-3xl font-semibold text-white sm:text-4xl">Manage your uploaded documents</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
                 Search, preview, and download documents used by the AI assistant.
               </p>
+              {uploadMessage && <p className="mt-3 text-sm text-emerald-300">{uploadMessage}</p>}
             </div>
-            <button className="inline-flex items-center justify-center rounded-3xl bg-sky-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-400">
-              Upload Document
-            </button>
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.docx,.md,.xlsx"
+                className="hidden"
+                onChange={(event) => handleFileSelection(event.target.files)}
+              />
+              <button
+                type="button"
+                onClick={handleUploadButton}
+                className="inline-flex items-center justify-center rounded-3xl bg-sky-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-400"
+              >
+                Upload Document
+              </button>
+            </div>
           </div>
         </div>
 
@@ -121,16 +176,48 @@ const KnowledgeSources = () => {
                 <p className="text-sm text-slate-400">Uploaded {source.date}</p>
               </div>
               <div className="mt-6 flex flex-wrap gap-3">
-                <button className="inline-flex items-center justify-center rounded-3xl bg-slate-900/80 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-900/95">
+                <button
+                  type="button"
+                  onClick={() => handlePreview(source)}
+                  className="inline-flex items-center justify-center rounded-3xl bg-slate-900/80 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-900/95"
+                >
                   Preview
                 </button>
-                <button className="inline-flex items-center justify-center rounded-3xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-400">
+                <button
+                  type="button"
+                  onClick={() => window.alert(`Downloading ${source.name} is not supported in this demo.`)}
+                  className="inline-flex items-center justify-center rounded-3xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-400"
+                >
                   Download
                 </button>
               </div>
             </motion.article>
           ))}
         </div>
+
+        {previewSource && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-6">
+            <div className="w-full max-w-2xl rounded-[24px] border border-white/10 bg-slate-950/95 p-6 shadow-[0_24px_80px_rgba(14,165,233,0.18)] backdrop-blur-xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.35em] text-sky-400">Document preview</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">{previewSource.name}</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClosePreview}
+                  className="rounded-2xl border border-white/10 bg-slate-900/80 px-4 py-2 text-sm text-slate-300 transition hover:bg-slate-900"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="mt-6 rounded-[20px] border border-white/10 bg-slate-900/80 p-5 text-sm text-slate-200">
+                <p className="text-sm text-slate-400">File type: {previewSource.type}</p>
+                <p className="mt-4 whitespace-pre-wrap">{previewSource.content}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 const suggestedPrompts = [
@@ -36,6 +37,7 @@ const sampleAiResponses = [
 ];
 
 const Chat = () => {
+  const navigate = useNavigate();
   const [chatHistory, setChatHistory] = useState(initialMessages);
   const [draft, setDraft] = useState('');
   const [typing, setTyping] = useState(false);
@@ -110,8 +112,15 @@ const Chat = () => {
         <div className="mb-6 rounded-[28px] border border-white/10 bg-slate-950/95 p-6 shadow-[0_40px_120px_-80px_rgba(0,0,0,0.6)] backdrop-blur-xl">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
+              >
+                ← Back
+              </button>
               <p className="text-xs uppercase tracking-[0.35em] text-sky-400">Chat with AI</p>
-              <h1 className="mt-2 text-3xl font-semibold text-white sm:text-4xl">Ask the studio assistant</h1>
+              <h2 className="mt-2 text-3xl font-semibold text-white sm:text-4xl">Ask the studio assistant</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
                 Use suggested prompts or ask directly. The AI will respond with confidence, source data, and feedback controls.
               </p>

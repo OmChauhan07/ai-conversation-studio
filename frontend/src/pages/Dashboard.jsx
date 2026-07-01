@@ -9,7 +9,7 @@ const menuItems = [
   { label: 'Conversation History', icon: '📜', path: '/history' },
   { label: 'Knowledge Sources', icon: '📄', path: '/knowledge' },
   { label: 'My Feedback', icon: '⭐', path: '/feedback' },
-  { label: 'Profile', icon: '👤' },
+  { label: 'Profile', icon: '👤', path: '/profile' },
   { label: 'Logout', icon: '🚪' },
 ];
 
@@ -143,12 +143,13 @@ const Dashboard = () => {
   const { user, logout } = useContext(AuthContext);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('Chat with AI');
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const userName = user?.name || user?.email?.split('@')[0] || 'AI Partner';
   const chatPanelActive = activeSection === 'Chat with AI';
 
   const handleMenuItemClick = (item) => {
     if (item.label === 'Logout') {
-      logout();
+      setLogoutModalOpen(true);
       return;
     }
     if (item.path) {
@@ -156,6 +157,16 @@ const Dashboard = () => {
       return;
     }
     setActiveSection(item.label);
+  };
+
+  const handleCancelLogout = () => {
+    setLogoutModalOpen(false);
+  };
+
+  const handleConfirmLogout = () => {
+    logout();
+    setLogoutModalOpen(false);
+    navigate('/login');
   };
 
   return (
@@ -485,6 +496,32 @@ const Dashboard = () => {
             </motion.section>
           </div>
         </main>
+
+        {logoutModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-6">
+            <div className="w-full max-w-md rounded-[24px] border border-white/10 bg-slate-950/95 p-6 shadow-[0_24px_80px_rgba(14,165,233,0.18)] backdrop-blur-xl">
+              <p className="text-sm uppercase tracking-[0.35em] text-sky-400">Confirm logout</p>
+              <h2 className="mt-4 text-2xl font-semibold text-white">Are you sure you want to logout?</h2>
+              <p className="mt-3 text-sm leading-6 text-slate-400">You will be returned to the login screen and your session will end.</p>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={handleCancelLogout}
+                  className="h-12 rounded-2xl border border-slate-700 bg-slate-900/80 px-5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmLogout}
+                  className="h-12 rounded-2xl bg-red-500 px-5 text-sm font-semibold text-white transition hover:bg-red-400"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

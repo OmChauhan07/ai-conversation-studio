@@ -6,6 +6,11 @@ import Register from './pages/Register';
 import VerifyOtp from './pages/VerifyOtp';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Chat from './pages/Chat';
+import ConversationHistory from './pages/ConversationHistory';
+import KnowledgeSources from './pages/KnowledgeSources';
+import Feedback from './pages/Feedback';
+import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 
@@ -13,7 +18,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+        <div className="min-h-screen">
           <Routes>
             {/* Catch-all to send root traffic directly to login */}
             <Route path="/" element={<Navigate to="/login" replace />} />
@@ -33,6 +38,46 @@ function App() {
                   <Dashboard />
                 </ProtectedRoute>
               } 
+            />
+            <Route 
+              path="/chat" 
+              element={
+                <ProtectedRoute>
+                  <Chat />
+                </ProtectedRoute>
+              } 
+            />
+            <Route
+              path="/history"
+              element={
+                <ProtectedRoute>
+                  <ConversationHistory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/knowledge"
+              element={
+                <ProtectedRoute>
+                  <KnowledgeSources />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/feedback"
+              element={
+                <ProtectedRoute>
+                  <Feedback />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
             />
 
             {/* Fallback routing for unknown paths */}
