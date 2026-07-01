@@ -1,9 +1,6 @@
-from fastapi import APIRouter
-from fastapi import File
-from fastapi import UploadFile
-from fastapi import HTTPException
+from fastapi import APIRouter, File, UploadFile, HTTPException
 
-from app.services.file_service import FileService
+from app.services.ingestion_service import IngestionService
 
 router = APIRouter(
     prefix="/knowledge",
@@ -16,11 +13,11 @@ async def upload_document(file: UploadFile = File(...)):
 
     try:
 
-        document = await FileService.save_pdf(file)
+        result = await IngestionService.process_document(file)
 
         return {
             "success": True,
-            "document": document
+            **result
         }
 
     except ValueError as e:
@@ -30,9 +27,9 @@ async def upload_document(file: UploadFile = File(...)):
             detail=str(e)
         )
 
-    except Exception:
+    except Exception as e:
 
         raise HTTPException(
             status_code=500,
-            detail="Failed to upload document."
+            detail=str(e)
         )
