@@ -25,38 +25,44 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-      <h2 className="text-2xl font-bold mb-2 text-center text-gray-800">Forgot Password</h2>
-      <p className="text-sm text-center text-gray-600 mb-6">
-        Enter your email and we'll send you a 6-digit reset code.
-      </p>
-      
-      {error && <div className="bg-red-50 text-red-500 p-3 rounded mb-4 text-sm">{error}</div>}
+    <div className="relative min-h-screen w-screen overflow-hidden bg-[linear-gradient(135deg,#020617_0%,#0B1120_40%,#111827_100%)] text-white">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-500/10 blur-[80px]" />
+      </div>
+      <div className="relative z-10 flex min-h-screen w-full items-center justify-center px-4 py-6">
+        <div className="w-full max-w-[380px] rounded-[18px] bg-[rgba(15,23,42,0.82)] p-5 shadow-[0_24px_80px_rgba(14,165,233,0.14)] backdrop-blur-[18px] animate-fade-in-up">
+          <div className="mb-4 text-center">
+            <p className="text-[18px] font-semibold uppercase tracking-[0.35em] text-sky-400">AI Conversation Studio</p>
+            <h1 className="mt-3 text-[18px] font-semibold leading-tight text-white">Forgot password</h1>
+            <p className="mt-2 text-[18px] leading-6 text-slate-400">Enter your email and we’ll send a 6-digit reset code.</p>
+          </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-          <input
-            type="email"
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          {error && <div className="mb-4 rounded-[14px] bg-red-50 px-4 py-3 text-[18px] text-red-700">{error}</div>}
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <label className="mb-2 block text-[18px] font-medium text-slate-300">Email address</label>
+              <input
+                type="email"
+                required
+                className="h-[46px] w-full rounded-[12px] bg-slate-950/85 px-4 text-[18px] text-slate-100 outline-none ring-1 ring-slate-800 transition duration-300 focus:ring-2 focus:ring-sky-500/30"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="h-[48px] w-full rounded-[12px] bg-gradient-to-r from-sky-500 to-blue-500 px-4 text-[18px] font-semibold text-white shadow-[0_14px_40px_rgba(14,165,233,0.18)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(14,165,233,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? 'Sending code...' : 'Send reset code'}
+            </button>
+          </form>
+
+          <p className="mt-4 text-center text-[18px] text-slate-400">Remember your password? <Link to="/login" className="font-semibold text-sky-400 hover:text-sky-300">Log in</Link></p>
         </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition duration-200 disabled:opacity-50"
-        >
-          {loading ? 'Sending Code...' : 'Send Reset Code'}
-        </button>
-      </form>
-
-      <p className="mt-4 text-sm text-center text-gray-600">
-        Remember your password? <Link to="/login" className="text-blue-600 hover:underline">Log in</Link>
-      </p>
+      </div>
     </div>
   );
 };

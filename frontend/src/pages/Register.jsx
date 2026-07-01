@@ -4,7 +4,7 @@ import api from '../api/axiosConfig';
 
 const Register = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '', company: '', role: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -14,10 +14,7 @@ const Register = () => {
     setLoading(true);
 
     try {
-      // Hit your Express backend
-      const response = await api.post('/register', formData);
-      
-      // If successful, navigate to the OTP page and pass the email along
+      await api.post('/register', formData);
       navigate('/verify-otp', { state: { email: formData.email } });
     } catch (err) {
       setError(err.response?.data?.error || 'Something went wrong. Please try again.');
@@ -27,46 +24,106 @@ const Register = () => {
   };
 
   return (
-    <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-      <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Create an Account</h2>
-      
-      {error && <div className="bg-red-50 text-red-500 p-3 rounded mb-4 text-sm">{error}</div>}
+    <div className="relative min-h-screen w-screen overflow-hidden bg-[linear-gradient(135deg,#020617_0%,#0B1120_40%,#111827_100%)] text-white">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-500/10 blur-[80px]" />
+      </div>
+      <div className="relative z-10 flex min-h-screen w-full items-center justify-center px-4 py-6">
+        <div className="w-full max-w-[400px] rounded-[18px] bg-[rgba(15,23,42,0.82)] p-5 shadow-[0_24px_80px_rgba(14,165,233,0.14)] backdrop-blur-[18px] animate-fade-in-up">
+          <div className="mb-4 text-center">
+            <p className="text-[18px] font-semibold uppercase tracking-[0.35em] text-sky-400">AI Conversation Studio</p>
+            <h1 className="mt-3 text-[18px] font-semibold leading-tight text-white">Create account</h1>
+            <p className="mt-2 text-[18px] leading-6 text-slate-400">Sign up to access prompt testing, analytics, and governance.</p>
+          </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-          <input
-            type="email"
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          />
+          {error && <div className="mb-4 rounded-[14px] bg-red-50 px-4 py-3 text-[18px] text-red-700">{error}</div>}
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div>
+              <label className="mb-2 block text-[18px] font-medium text-slate-300">Full Name</label>
+              <input
+                type="text"
+                required
+                className="h-[46px] w-full rounded-[12px] bg-slate-950/85 px-4 text-[18px] text-slate-100 outline-none ring-1 ring-slate-800 transition duration-300 focus:ring-2 focus:ring-sky-500/30"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[18px] font-medium text-slate-300">Work Email</label>
+              <input
+                type="email"
+                required
+                className="h-[46px] w-full rounded-[12px] bg-slate-950/85 px-4 text-[18px] text-slate-100 outline-none ring-1 ring-slate-800 transition duration-300 focus:ring-2 focus:ring-sky-500/30"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-[18px] font-medium text-slate-300">Company</label>
+                <input
+                  type="text"
+                  className="h-[46px] w-full rounded-[12px] bg-slate-950/85 px-4 text-[18px] text-slate-100 outline-none ring-1 ring-slate-800 transition duration-300 focus:ring-2 focus:ring-sky-500/30"
+                  value={formData.company}
+                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-[18px] font-medium text-slate-300">Role</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  className="h-[46px] w-full rounded-[12px] bg-slate-950/85 px-4 text-[18px] text-slate-100 outline-none ring-1 ring-slate-800 transition duration-300 focus:ring-2 focus:ring-sky-500/30"
+                >
+                  <option value="" disabled className="text-slate-500">Select your role</option>
+                  <option value="admin">Admin</option>
+                  <option value="manager">Manager</option>
+                  <option value="analyst">Analyst</option>
+                  <option value="operator">Operator</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-[18px] font-medium text-slate-300">Password</label>
+                <input
+                  type="password"
+                  required
+                  minLength="6"
+                  className="h-[46px] w-full rounded-[12px] bg-slate-950/85 px-4 text-[18px] text-slate-100 outline-none ring-1 ring-slate-800 transition duration-300 focus:ring-2 focus:ring-sky-500/30"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-[18px] font-medium text-slate-300">Confirm Password</label>
+                <input
+                  type="password"
+                  required
+                  minLength="6"
+                  className="h-[46px] w-full rounded-[12px] bg-slate-950/85 px-4 text-[18px] text-slate-100 outline-none ring-1 ring-slate-800 transition duration-300 focus:ring-2 focus:ring-sky-500/30"
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="h-[48px] w-full rounded-[12px] bg-gradient-to-r from-sky-500 to-blue-500 px-4 text-[18px] font-semibold text-white shadow-[0_14px_40px_rgba(14,165,233,0.18)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_45px_rgba(14,165,233,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? 'Signing up...' : 'Sign Up'}
+            </button>
+          </form>
+
+          <p className="mt-4 text-center text-[18px] text-slate-400">Already have an account? <Link to="/login" className="font-semibold text-sky-400 hover:text-sky-300">Sign in</Link></p>
         </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-          <input
-            type="password"
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition duration-200 disabled:opacity-50"
-        >
-          {loading ? 'Sending OTP...' : 'Register'}
-        </button>
-      </form>
-
-      <p className="mt-4 text-sm text-center text-gray-600">
-        Already have an account? <Link to="/login" className="text-blue-600 hover:underline">Log in</Link>
-      </p>
+      </div>
     </div>
   );
 };
