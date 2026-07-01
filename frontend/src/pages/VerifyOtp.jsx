@@ -48,7 +48,7 @@ const VerifyOtp = () => {
         <div className="w-full max-w-[380px] rounded-[18px] bg-[rgba(15,23,42,0.82)] p-5 shadow-[0_24px_80px_rgba(14,165,233,0.14)] backdrop-blur-[18px] animate-fade-in-up">
           <div className="mb-4 text-center">
             <p className="text-[18px] font-semibold uppercase tracking-[0.35em] text-sky-400">AI Conversation Studio</p>
-            <h1 className="mt-3 text-[18px] font-semibold leading-tight text-white">Verify your email</h1>
+            <h2 className="mt-3 text-[18px] font-semibold leading-tight text-white">Verify your email</h2>
             <p className="mt-2 text-[18px] leading-6 text-slate-400">We sent a 6-digit code to <strong className="text-white">{email}</strong></p>
           </div>
 
@@ -62,7 +62,7 @@ const VerifyOtp = () => {
                 required
                 maxLength="6"
                 placeholder="Enter 6-digit code"
-                className="h-[46px] w-full rounded-[12px] bg-slate-950/85 px-4 text-center text-[18px] tracking-[0.35em] text-slate-100 outline-none ring-1 ring-slate-800 transition duration-300 focus:ring-2 focus:ring-sky-500/30"
+                className="h-[46px] w-full rounded-[12px] bg-slate-950/85 px-4 text-center text-base tracking-[0.35em] text-slate-100 outline-none ring-1 ring-slate-800 transition duration-300 focus:ring-2 focus:ring-sky-500/30"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
               />
