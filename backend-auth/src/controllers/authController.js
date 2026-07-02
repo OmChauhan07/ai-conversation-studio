@@ -116,8 +116,14 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ error: 'Internal server error.' });
-  }
+  console.error("========== LOGIN ERROR ==========");
+  console.error(error);
+  console.error(error.stack);
+
+  return res.status(500).json({
+    error: "Internal server error."
+  });
+}
 };
 
 const getProfile = async (req, res) => {
