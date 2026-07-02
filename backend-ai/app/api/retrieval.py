@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
+from app.core.exceptions import KnowledgeBaseEmptyError, NoRelevantKnowledgeError
 from app.services.retrieval_service import RetrievalService
 
 router = APIRouter(
@@ -20,7 +22,11 @@ async def search(request: RetrievalRequest):
         chunks = await retrieval_service.search(request.query)
 
         return {"chunks": chunks}
+    except KnowledgeBaseEmptyError as error:
+        return JSONResponse(status_code=404, content={"success": False, "message": str(error)})
+    except NoRelevantKnowledgeError as error:
+        return JSONResponse(status_code=404, content={"success": False, "message": str(error)})
     except ValueError as error:
-        return {"success": False, "message": str(error)}
+        return JSONResponse(status_code=400, content={"success": False, "message": str(error)})
     except Exception as error:
         raise HTTPException(status_code=500, detail=str(error))

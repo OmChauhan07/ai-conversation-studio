@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass
 
-from app.core.config import GEMINI_API_KEY, GEMINI_MODEL_NAME, GROQ_API_KEY, GROQ_MODEL_NAME
+from starlette.concurrency import run_in_threadpool
+
+from app.core import config
+from app.core.exceptions import InvalidModelError, ProviderUnavailableError
 
 try:
     from google import genai
@@ -13,6 +18,9 @@ try:
     from groq import Groq
 except Exception:  # pragma: no cover - optional import guard
     Groq = None
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -32,17 +40,24 @@ class GeminiService:
 
     @classmethod
     def get_gemini_client(cls):
-        if cls._gemini_client is None and GEMINI_API_KEY and genai is not None:
-            cls._gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+        if cls._gemini_client is None and config.GEMINI_API_KEY and genai is not None:
+            cls._gemini_client = genai.Client(api_key=config.GEMINI_API_KEY)
 
         return cls._gemini_client
 
     @classmethod
     def get_groq_client(cls):
-        if cls._groq_client is None and GROQ_API_KEY and Groq is not None:
-            cls._groq_client = Groq(api_key=GROQ_API_KEY)
+        if cls._groq_client is None and config.GROQ_API_KEY and Groq is not None:
+            cls._groq_client = Groq(api_key=config.GROQ_API_KEY)
 
         return cls._groq_client
+
+    @staticmethod
+    def _require_model(model_name: str | None, provider_name: str) -> str:
+        if not model_name or not str(model_name).strip():
+            raise InvalidModelError(f"{provider_name} model is not configured.")
+
+        return str(model_name).strip()
 
     @staticmethod
     def _extract_gemini_text(response) -> str:
@@ -81,42 +96,46 @@ class GeminiService:
         return str(content).strip() if content else ""
 
     @staticmethod
-    def _is_retryable_provider_error(error: Exception) -> bool:
-        message = str(error).lower()
-        retryable_markers = [
-            "429",
-            "rate limit",
-            "timeout",
-            "timed out",
-            "temporarily unavailable",
-            "service unavailable",
-            "api unavailable",
-            "connection error",
-            "internal server error",
-            "503",
+    def _error_message(error: Exception) -> str:
+        return str(error).strip()
+
+    @classmethod
+    def _is_invalid_model_error(cls, error: Exception) -> bool:
+        message = cls._error_message(error).lower()
+        invalid_markers = [
+            "model not found",
+            "model-not-found",
+            "not found",
+            "does not exist",
+            "invalid model",
+            "unknown model",
         ]
-        return any(marker in message for marker in retryable_markers)
+        return any(marker in message for marker in invalid_markers)
 
     def _generate_with_gemini(self, prompt: str) -> GenerationResult:
         if self.gemini_client is None:
-            raise ValueError("Gemini unavailable")
+            raise ProviderUnavailableError("Gemini unavailable.")
+
+        model_name = self._require_model(config.GEMINI_MODEL_NAME, "Gemini")
 
         response = self.gemini_client.models.generate_content(
-            model=GEMINI_MODEL_NAME,
+            model=model_name,
             contents=prompt,
         )
         text = self._extract_gemini_text(response)
         if not text:
-            raise ValueError("Gemini returned an empty response")
+            raise ProviderUnavailableError("Gemini returned an empty response.")
 
-        return GenerationResult(text=text, provider="Gemini", model=GEMINI_MODEL_NAME)
+        return GenerationResult(text=text, provider="Gemini", model=model_name)
 
     def _generate_with_groq(self, prompt: str) -> GenerationResult:
         if self.groq_client is None:
-            raise ValueError("Groq unavailable")
+            raise ProviderUnavailableError("Groq unavailable.")
+
+        model_name = self._require_model(config.GROQ_MODEL_NAME, "Groq")
 
         response = self.groq_client.chat.completions.create(
-            model=GROQ_MODEL_NAME,
+            model=model_name,
             messages=[
                 {"role": "user", "content": prompt},
             ],
@@ -124,25 +143,47 @@ class GeminiService:
         )
         text = self._extract_groq_text(response)
         if not text:
-            raise ValueError("Groq returned an empty response")
+            raise ProviderUnavailableError("Groq returned an empty response.")
 
-        return GenerationResult(text=text, provider="Groq", model=GROQ_MODEL_NAME)
+        return GenerationResult(text=text, provider="Groq", model=model_name)
 
     async def generate(self, prompt: str) -> GenerationResult:
+        """Generate a grounded answer using Gemini, with Groq fallback on transient failures."""
+
         if not prompt or not prompt.strip():
             raise ValueError("Prompt cannot be empty.")
 
-        gemini_error = None
+        start_time = time.perf_counter()
+        logger.info("Provider selected: Gemini")
 
         try:
-            return self._generate_with_gemini(prompt)
+            result = await run_in_threadpool(self._generate_with_gemini, prompt)
+            logger.info("Gemini latency: %.3fs", time.perf_counter() - start_time)
+            return result
+        except InvalidModelError:
+            logger.exception("Gemini model error")
+            raise
         except Exception as error:
-            gemini_error = error
+            if self._is_invalid_model_error(error):
+                logger.exception("Gemini model not found")
+                raise InvalidModelError(self._error_message(error)) from error
+
+            logger.warning("Gemini provider failed, falling back to Groq: %s", self._error_message(error))
 
         try:
-            return self._generate_with_groq(prompt)
-        except Exception as groq_error:
-            if gemini_error is None:
-                raise groq_error
+            logger.info("Provider selected: Groq")
+            result = await run_in_threadpool(self._generate_with_groq, prompt)
+            logger.info("Groq latency: %.3fs", time.perf_counter() - start_time)
+            return result
 
-            raise ValueError("No providers available") from groq_error
+        except InvalidModelError:
+            logger.exception("Groq model error")
+            raise
+
+        except Exception as error:
+            if self._is_invalid_model_error(error):
+                logger.exception("Groq model not found")
+                raise InvalidModelError(self._error_message(error)) from error
+
+            logger.exception("Groq provider unavailable")
+            raise ProviderUnavailableError(self._error_message(error)) from error
