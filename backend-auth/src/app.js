@@ -1,24 +1,19 @@
-const express = require('express');
-const cors = require('cors');
-const authRoutes = require('./routes/authRoutes');
-const adminRoutes = require('./routes/adminRoutes');
+const express = require("express");
+const cors = require("cors");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Health endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    service: 'backend-auth',
-    timestamp: new Date().toISOString(),
-  });
+app.get("/", (req, res) => {
+  res.send("Backend Auth Running");
 });
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+  });
+});
 
 module.exports = app;
