@@ -3,11 +3,12 @@ const jwt = require('jsonwebtoken');
 const { prisma } = require('../config/database');
 const { sendOTP } = require('../config/mailer');
 const { sendPasswordResetEmail } = require('../config/mailer');
+const { getProfileByUserId, updateProfileByUserId } = require('../services/profileService');
 
 
 // Handle User Registration
 const register = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, name } = req.body;
   const isDevelopment = process.env.NODE_ENV !== 'production';
 
   try {
@@ -26,8 +27,21 @@ const register = async (req, res) => {
     // Upsert: Create user if they don't exist, or update OTP if they exist but aren't verified yet
     const user = await prisma.user.upsert({
       where: { email },
-      update: { password: hashedPassword, otp, otpExpiresAt },
-      create: { email, password: hashedPassword, otp, otpExpiresAt },
+      update: {
+        password: hashedPassword,
+        otp,
+        otpExpiresAt,
+        name: name || null,
+        role: 'USER',
+      },
+      create: {
+        email,
+        password: hashedPassword,
+        otp,
+        otpExpiresAt,
+        name: name || null,
+        role: 'USER',
+      },
     });
 
     // Send the email
@@ -86,14 +100,60 @@ const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { id: user.id, email: user.email, role: user.role },
       process.env.JWT_SECRET || 'fallback_secret',
       { expiresIn: '2h' }
     );
 
-    res.json({ message: 'Login successful', token });
+    res.json({
+      message: 'Login successful',
+      token,
+      role: user.role,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+const getProfile = async (req, res) => {
+  try {
+    const profile = await getProfileByUserId(req.user.id);
+
+    return res.json({
+      success: true,
+      data: profile,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+
+    return res.status(statusCode).json({
+      success: false,
+      message: statusCode === 500 ? 'Internal server error.' : error.message,
+    });
+  }
+};
+
+const updateProfile = async (req, res) => {
+  try {
+    const profile = await updateProfileByUserId(req.user.id, req.body);
+
+    return res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      data: profile,
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+
+    return res.status(statusCode).json({
+      success: false,
+      message: statusCode === 500 ? 'Internal server error.' : error.message,
+    });
   }
 };
 
@@ -173,4 +233,13 @@ const getDashboard = (req, res) => {
   });
 };
 
-module.exports = { register, verifyOtp, login, getDashboard, forgotPassword, resetPassword };
+module.exports = {
+  register,
+  verifyOtp,
+  login,
+  getDashboard,
+  forgotPassword,
+  resetPassword,
+  getProfile,
+  updateProfile,
+};
