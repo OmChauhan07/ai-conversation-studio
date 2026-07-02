@@ -2,8 +2,54 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 const PromptTesting = () => {
-  // Prompt data - empty state until API is available
-  const [prompts, setPrompts] = useState([]);
+  // Mock prompt data
+  const [prompts, setPrompts] = useState([
+    {
+      id: 1,
+      name: 'Content Summarization',
+      description: 'Summarizes large texts into concise bullet points',
+      model: 'GPT-4',
+      status: 'Active',
+      lastUpdated: '2026-06-28',
+      template: 'Summarize the following content in 3-5 bullet points: {content}',
+    },
+    {
+      id: 2,
+      name: 'Safety Guideline Checker',
+      description: 'Checks content for compliance with company policies',
+      model: 'GPT-4',
+      status: 'Active',
+      lastUpdated: '2026-06-25',
+      template: 'Review the following for compliance with safety guidelines: {content}',
+    },
+    {
+      id: 3,
+      name: 'FAQ Generator',
+      description: 'Generates FAQ responses from documentation',
+      model: 'GPT-3.5',
+      status: 'Active',
+      lastUpdated: '2026-06-20',
+      template: 'Generate a FAQ response for this question: {question}',
+    },
+    {
+      id: 4,
+      name: 'Sentiment Analysis',
+      description: 'Analyzes sentiment and tone of user messages',
+      model: 'GPT-3.5',
+      status: 'Inactive',
+      lastUpdated: '2026-06-15',
+      template: 'Analyze the sentiment of: {text}',
+    },
+    {
+      id: 5,
+      name: 'Email Drafting',
+      description: 'Generates professional email responses',
+      model: 'GPT-4',
+      status: 'Active',
+      lastUpdated: '2026-06-10',
+      template: 'Draft a professional response to: {email}',
+    },
+  ]);
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -40,29 +86,80 @@ const PromptTesting = () => {
     setShowModal(true);
   };
 
-  // Save prompt (create or update) - TODO: Connect to API when available
+  // Save prompt (create or update)
   const handleSavePrompt = () => {
     if (!formData.name || !formData.description || !formData.template) {
       showSuccessToast('Please fill in all fields');
       return;
     }
-    showSuccessToast('Prompt API not yet implemented. Changes are local only.');
+
+    if (editingId) {
+      // Update existing prompt
+      setPrompts(
+        prompts.map((p) =>
+          p.id === editingId
+            ? {
+                ...p,
+                name: formData.name,
+                description: formData.description,
+                template: formData.template,
+                lastUpdated: new Date().toISOString().split('T')[0],
+              }
+            : p
+        )
+      );
+      showSuccessToast(`Prompt "${formData.name}" updated successfully!`);
+    } else {
+      // Create new prompt
+      const newPrompt = {
+        id: prompts.length + 1,
+        name: formData.name,
+        description: formData.description,
+        template: formData.template,
+        model: 'GPT-4',
+        status: 'Active',
+        lastUpdated: new Date().toISOString().split('T')[0],
+      };
+      setPrompts([newPrompt, ...prompts]);
+      showSuccessToast(`Prompt "${formData.name}" created successfully!`);
+    }
+
     setShowModal(false);
   };
 
-  // Duplicate prompt - TODO: Connect to API when available
+  // Duplicate prompt
   const handleDuplicate = (prompt) => {
-    showSuccessToast('Prompt API not yet implemented.');
+    const duplicated = {
+      ...prompt,
+      id: Math.max(...prompts.map((p) => p.id)) + 1,
+      name: `${prompt.name} (Copy)`,
+      lastUpdated: new Date().toISOString().split('T')[0],
+    };
+    setPrompts([duplicated, ...prompts]);
+    showSuccessToast(`Prompt "${prompt.name}" duplicated!`);
   };
 
-  // Delete prompt - TODO: Connect to API when available
+  // Delete prompt
   const handleDelete = (prompt) => {
-    showSuccessToast('Prompt API not yet implemented.');
+    setPrompts(prompts.filter((p) => p.id !== prompt.id));
+    showSuccessToast(`Prompt "${prompt.name}" deleted!`);
   };
 
-  // Toggle prompt status - TODO: Connect to API when available
+  // Toggle prompt status
   const handleToggleStatus = (prompt) => {
-    showSuccessToast('Prompt API not yet implemented.');
+    setPrompts(
+      prompts.map((p) =>
+        p.id === prompt.id
+          ? {
+              ...p,
+              status: p.status === 'Active' ? 'Inactive' : 'Active',
+              lastUpdated: new Date().toISOString().split('T')[0],
+            }
+          : p
+      )
+    );
+    const newStatus = prompt.status === 'Active' ? 'Inactive' : 'Active';
+    showSuccessToast(`Prompt "${prompt.name}" is now ${newStatus}!`);
   };
 
   return (

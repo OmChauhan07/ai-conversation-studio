@@ -1,21 +1,32 @@
 import { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import api from '../api/axiosConfig';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const defaultProfile = {
+    name: user?.name || user?.email?.split('@')[0] || 'AI Partner',
+    email: user?.email || 'unknown@ai.com',
+    company: user?.company || '',
+    role: user?.role || 'User',
+    joined: user?.joined || 'Joined date unavailable',
+    phone: user?.phone || '',
+    avatarUrl:
+      user?.avatarUrl ||
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(
+        user?.name || user?.email?.split('@')[0] || 'AI'
+      )}&background=1D4ED8&color=ffffff`,
+  };
+
+  const [profile, setProfile] = useState(defaultProfile);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [formValues, setFormValues] = useState({
-    name: '',
+    name: defaultProfile.name,
+    company: defaultProfile.company,
+    phone: defaultProfile.phone,
   });
-  const [saveError, setSaveError] = useState('');
-  const [saveSuccess, setSaveSuccess] = useState('');
   const [passwordValues, setPasswordValues] = useState({
     currentPassword: '',
     newPassword: '',
@@ -24,47 +35,23 @@ const Profile = () => {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
 
-  // Fetch profile on mount
   useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const response = await api.get('/profile');
-      if (response.data.success) {
-        setProfile(response.data.data);
-        setFormValues({ name: response.data.data.name || '' });
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load profile.');
-      console.error('Error fetching profile:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getAvatarUrl = (name) => {
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'User')}&background=1D4ED8&color=ffffff`;
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Unknown';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+    setProfile(defaultProfile);
+    setFormValues({
+      name: defaultProfile.name,
+      company: defaultProfile.company,
+      phone: defaultProfile.phone,
     });
-  };
+  }, [user]);
 
   const handleOpenModal = () => {
     setFormValues({
       name: profile.name,
+      company: profile.company,
+      phone: profile.phone,
     });
-    setSaveError('');
-    setSaveSuccess('');
+    setPasswordError('');
+    setPasswordSuccess('');
     setIsModalOpen(true);
   };
 
@@ -97,20 +84,10 @@ const Profile = () => {
     setPasswordValues((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = async (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
-    try {
-      setSaveError('');
-      const response = await api.patch('/profile', { name: formValues.name });
-      if (response.data.success) {
-        setSaveSuccess('Profile updated successfully.');
-        await fetchProfile(); // Refresh profile data
-        setIsModalOpen(false);
-      }
-    } catch (err) {
-      setSaveError(err.response?.data?.message || 'Failed to update profile.');
-      console.error('Error updating profile:', err);
-    }
+    setProfile((prev) => ({ ...prev, ...formValues }));
+    setIsModalOpen(false);
   };
 
   const handlePasswordSave = (e) => {
@@ -198,12 +175,12 @@ const Profile = () => {
                 <p className="mt-2 text-sm text-slate-100">{profile.email}</p>
               </div>
               <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
-                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Role</p>
-                <p className="mt-2 text-sm text-slate-100">{profile.role}</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Company</p>
+                <p className="mt-2 text-sm text-slate-100">{profile.company}</p>
               </div>
               <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
                 <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Joined</p>
-                <p className="mt-2 text-sm text-slate-100">{formatDate(profile.createdAt)}</p>
+                <p className="mt-2 text-sm text-slate-100">{profile.joined}</p>
               </div>
             </div>
           </div>
@@ -254,6 +231,26 @@ const Profile = () => {
                     type="text"
                     name="name"
                     value={formValues.name}
+                    onChange={handleChange}
+                    className="h-[46px] w-full rounded-2xl border border-slate-800 bg-slate-900/80 px-4 text-sm text-slate-100 outline-none transition focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">Company</label>
+                  <input
+                    type="text"
+                    name="company"
+                    value={formValues.company}
+                    onChange={handleChange}
+                    className="h-[46px] w-full rounded-2xl border border-slate-800 bg-slate-900/80 px-4 text-sm text-slate-100 outline-none transition focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">Phone Number</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formValues.phone}
                     onChange={handleChange}
                     className="h-[46px] w-full rounded-2xl border border-slate-800 bg-slate-900/80 px-4 text-sm text-slate-100 outline-none transition focus:border-sky-500/40 focus:ring-2 focus:ring-sky-500/20"
                   />

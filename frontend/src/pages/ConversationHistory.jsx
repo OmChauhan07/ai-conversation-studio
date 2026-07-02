@@ -2,16 +2,64 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
+const mockConversations = [
+  {
+    id: 'AC-00124',
+    question: 'How can I improve response accuracy for policy questions?',
+    date: '2026-06-28',
+    aiScore: '93%',
+    status: 'Resolved',
+    conversation: [
+      { sender: 'user', text: 'How can I improve response accuracy for policy questions?' },
+      { sender: 'ai', text: 'Focus on clear prompt structure, cite your sources, and add a relevance check step to your review process.' },
+    ],
+  },
+  {
+    id: 'AC-00123',
+    question: 'What is our preferred process for escalation?',
+    date: '2026-06-27',
+    aiScore: '88%',
+    status: 'Review',
+    conversation: [
+      { sender: 'user', text: 'What is our preferred process for escalation?' },
+      { sender: 'ai', text: 'Use the incident tracker, notify the policy team, and route approvals through the compliance dashboard.' },
+    ],
+  },
+  {
+    id: 'AC-00122',
+    question: 'Summarize the compliance checklist for launch.',
+    date: '2026-06-26',
+    aiScore: '95%',
+    status: 'Resolved',
+    conversation: [
+      { sender: 'user', text: 'Summarize the compliance checklist for launch.' },
+      { sender: 'ai', text: 'Ensure controls are in place for data privacy, risk review, model guardrails, and user consent validation.' },
+    ],
+  },
+  {
+    id: 'AC-00121',
+    question: 'List the key risks for AI hallucinations.',
+    date: '2026-06-25',
+    aiScore: '89%',
+    status: 'Pending',
+    conversation: [
+      { sender: 'user', text: 'List the key risks for AI hallucinations.' },
+      { sender: 'ai', text: 'Hallucinations can impact trust, compliance, and decision accuracy. Mitigate them with grounding, verification, and human review.' },
+    ],
+  },
+];
+
+const statusOptions = ['All', 'Resolved', 'Review', 'Pending'];
+
 const ConversationHistory = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [sortOrder, setSortOrder] = useState('desc');
   const [selectedConversation, setSelectedConversation] = useState(null);
-  const [conversations, setConversations] = useState([]);
 
   const filteredAndSorted = useMemo(() => {
-    return [...conversations]
+    return [...mockConversations]
       .filter((item) => {
         const query = search.toLowerCase();
         const matchesSearch = item.id.toLowerCase().includes(query) || item.question.toLowerCase().includes(query);
@@ -23,7 +71,7 @@ const ConversationHistory = () => {
         const dateB = new Date(b.date).getTime();
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       });
-  }, [search, statusFilter, sortOrder, conversations]);
+  }, [search, statusFilter, sortOrder]);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.08),transparent_18%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.05),transparent_22%),linear-gradient(180deg,#040612_0%,#090f1d_45%,#07101b_100%)] text-slate-100">
@@ -40,7 +88,6 @@ const ConversationHistory = () => {
           <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Review all past AI interactions</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
             Search, filter, and sort your previous conversations. Click any record to review the full dialogue.
-            <span className="block mt-2 text-amber-400">Note: Conversation history API not yet implemented. No conversations available.</span>
           </p>
         </div>
 

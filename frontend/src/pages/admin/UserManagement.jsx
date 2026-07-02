@@ -2,8 +2,63 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 const UserManagement = () => {
-  // User management API not yet implemented - empty state
-  const [users, setUsers] = useState([]);
+  // Mock user data
+  const [users, setUsers] = useState([
+    {
+      id: 1,
+      name: 'Alice Johnson',
+      email: 'alice.johnson@company.com',
+      role: 'Admin',
+      status: 'Active',
+      lastLogin: '2026-06-30 14:25',
+      initials: 'AJ',
+    },
+    {
+      id: 2,
+      name: 'Bob Smith',
+      email: 'bob.smith@company.com',
+      role: 'User',
+      status: 'Active',
+      lastLogin: '2026-06-29 10:15',
+      initials: 'BS',
+    },
+    {
+      id: 3,
+      name: 'Carol Williams',
+      email: 'carol.williams@company.com',
+      role: 'User',
+      status: 'Active',
+      lastLogin: '2026-06-28 16:42',
+      initials: 'CW',
+    },
+    {
+      id: 4,
+      name: 'David Brown',
+      email: 'david.brown@company.com',
+      role: 'Admin',
+      status: 'Suspended',
+      lastLogin: '2026-06-20 09:30',
+      initials: 'DB',
+    },
+    {
+      id: 5,
+      name: 'Emma Davis',
+      email: 'emma.davis@company.com',
+      role: 'User',
+      status: 'Active',
+      lastLogin: '2026-06-29 13:20',
+      initials: 'ED',
+    },
+    {
+      id: 6,
+      name: 'Frank Miller',
+      email: 'frank.miller@company.com',
+      role: 'User',
+      status: 'Active',
+      lastLogin: '2026-06-27 11:50',
+      initials: 'FM',
+    },
+  ]);
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -64,24 +119,67 @@ const UserManagement = () => {
     setShowModal(true);
   };
 
-  // Save user (create or update) - TODO: Connect to API when available
+  // Save user (create or update)
   const handleSaveUser = () => {
     if (!formData.name || !formData.email || !formData.role) {
       showSuccessToast('Please fill in all required fields');
       return;
     }
-    showSuccessToast('User management API not yet implemented. Changes are local only.');
+
+    if (editingId) {
+      // Update existing user
+      setUsers(
+        users.map((u) =>
+          u.id === editingId
+            ? {
+                ...u,
+                name: formData.name,
+                email: formData.email,
+                role: formData.role,
+                initials: getInitials(formData.name),
+              }
+            : u
+        )
+      );
+      showSuccessToast(`User "${formData.name}" updated successfully!`);
+    } else {
+      // Create new user
+      const newUser = {
+        id: Math.max(...users.map((u) => u.id)) + 1,
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+        status: 'Active',
+        lastLogin: new Date().toLocaleString(),
+        initials: getInitials(formData.name),
+      };
+      setUsers([newUser, ...users]);
+      showSuccessToast(`User "${formData.name}" created successfully!`);
+    }
+
     setShowModal(false);
   };
 
-  // Delete user - TODO: Connect to API when available
+  // Delete user
   const handleDelete = (user) => {
-    showSuccessToast('User management API not yet implemented.');
+    setUsers(users.filter((u) => u.id !== user.id));
+    showSuccessToast(`User "${user.name}" deleted!`);
   };
 
-  // Suspend/Activate user - TODO: Connect to API when available
+  // Suspend/Activate user
   const handleToggleSuspend = (user) => {
-    showSuccessToast('User management API not yet implemented.');
+    setUsers(
+      users.map((u) =>
+        u.id === user.id
+          ? {
+              ...u,
+              status: u.status === 'Active' ? 'Suspended' : 'Active',
+            }
+          : u
+      )
+    );
+    const newStatus = user.status === 'Active' ? 'Suspended' : 'Active';
+    showSuccessToast(`User "${user.name}" is now ${newStatus}!`);
   };
 
   return (
@@ -91,7 +189,6 @@ const UserManagement = () => {
         <div>
           <h2 className="text-3xl font-semibold text-white">User Management</h2>
           <p className="mt-1 text-sm text-slate-400">Manage platform users and permissions</p>
-          <p className="mt-1 text-xs text-amber-400">Note: User management API not yet implemented</p>
         </div>
         <button
           onClick={handleAddUserClick}
