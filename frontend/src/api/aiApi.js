@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const aiApi = axios.create({
-  baseURL: import.meta.env.VITE_AI_API || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_AI_API_URL || 'http://localhost:8000',
   headers: {
     'Content-Type': 'application/json',
   },
