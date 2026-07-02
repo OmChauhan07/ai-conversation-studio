@@ -1,60 +1,56 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-
-const initialFeedback = [
-  {
-    id: 'FB-001',
-    title: 'Response quality for policy guidance',
-    rating: 5,
-    comment: 'The assistant was very accurate and referenced the correct policy sections.',
-    date: 'Jun 28, 2026',
-  },
-  {
-    id: 'FB-002',
-    title: 'Escalation workflow clarity',
-    rating: 4,
-    comment: 'Helpful answer overall, but it could use a more concise summary.',
-    date: 'Jun 26, 2026',
-  },
-  {
-    id: 'FB-003',
-    title: 'Compliance checklist accuracy',
-    rating: 5,
-    comment: 'Great level of detail and the checklist matched our internal standards.',
-    date: 'Jun 24, 2026',
-  },
-];
+import { getFeedbackList, submitFeedback } from '../api/aiApi';
 
 const starLabels = ['Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
 
 const Feedback = () => {
   const navigate = useNavigate();
-  const [feedbackItems, setFeedbackItems] = useState(initialFeedback);
+  const [feedbackItems, setFeedbackItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
-  const [title, setTitle] = useState('');
+  const [conversationId, setConversationId] = useState('');
 
-  const submitFeedback = () => {
-    if (!title.trim() || !comment.trim() || rating === 0) return;
+  useEffect(() => {
+    fetchFeedback();
+  }, []);
 
-    setFeedbackItems((items) => [
-      {
-        id: `FB-${items.length + 1}`,
-        title: title.trim(),
+  const fetchFeedback = async () => {
+    try {
+      setLoading(true);
+      const res = await getFeedbackList();
+      if (res.success) {
+        setFeedbackItems(res.feedback || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch feedback:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!conversationId.trim() || !comment.trim() || rating === 0) return;
+
+    try {
+      await submitFeedback({
+        conversationId: conversationId.trim(),
         rating,
         comment: comment.trim(),
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      },
-      ...items,
-    ]);
-
-    setTitle('');
-    setComment('');
-    setRating(0);
-    setModalOpen(false);
+      });
+      setConversationId('');
+      setComment('');
+      setRating(0);
+      setModalOpen(false);
+      fetchFeedback();
+    } catch (error) {
+      console.error('Failed to submit feedback:', error);
+    }
   };
+
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.08),transparent_18%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.05),transparent_22%),linear-gradient(180deg,#040612_0%,#090f1d_45%,#07101b_100%)] text-slate-100">
@@ -94,8 +90,10 @@ const Feedback = () => {
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.3em] text-sky-400">{item.date}</p>
-                  <h2 className="mt-2 text-xl font-semibold text-white">{item.title}</h2>
+                  <p className="text-xs uppercase tracking-[0.3em] text-sky-400">
+                    {new Date(item.createdAt).toLocaleDateString()}
+                  </p>
+                  <h2 className="mt-2 text-xl font-semibold text-white">Conversation: {item.conversationTitle || item.conversationId.substring(0, 8)}</h2>
                 </div>
                 <div className="flex items-center gap-1 text-amber-400">
                   {Array.from({ length: 5 }, (_, index) => (
@@ -131,11 +129,11 @@ const Feedback = () => {
 
               <div className="mt-6 space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300">Conversation Title</label>
+                  <label className="block text-sm font-semibold text-slate-300">Conversation ID</label>
                   <input
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    placeholder="Enter a title for the feedback"
+                    value={conversationId}
+                    onChange={(event) => setConversationId(event.target.value)}
+                    placeholder="Enter the ID of the conversation"
                     className="mt-3 w-full rounded-3xl border border-white/10 bg-slate-900/90 px-4 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/10"
                   />
                 </div>
@@ -170,9 +168,9 @@ const Feedback = () => {
 
                 <button
                   type="button"
-                  onClick={submitFeedback}
+                  onClick={handleSubmit}
                   className="inline-flex w-full items-center justify-center rounded-3xl bg-sky-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-700"
-                  disabled={!title.trim() || !comment.trim() || rating === 0}
+                  disabled={!conversationId.trim() || !comment.trim() || rating === 0}
                 >
                   Submit Feedback
                 </button>

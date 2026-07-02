@@ -1,61 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { fetchDocuments, uploadDocument, deleteDocument } from '../../api/aiApi';
 
 const KnowledgeBase = () => {
-  // Mock data for documents
-  const [documents, setDocuments] = useState([
-    {
-      id: 1,
-      name: 'Company Policy Guidelines',
-      type: 'PDF',
-      uploadDate: '2026-06-28',
-      uploadedBy: 'Admin User',
-      status: 'Active',
-      size: '2.4 MB',
-    },
-    {
-      id: 2,
-      name: 'AI Testing Framework',
-      type: 'DOCX',
-      uploadDate: '2026-06-25',
-      uploadedBy: 'Admin User',
-      status: 'Active',
-      size: '1.8 MB',
-    },
-    {
-      id: 3,
-      name: 'Support FAQ Documentation',
-      type: 'Markdown',
-      uploadDate: '2026-06-20',
-      uploadedBy: 'Admin User',
-      status: 'Active',
-      size: '650 KB',
-    },
-    {
-      id: 4,
-      name: 'Compliance Checklist 2026',
-      type: 'XLSX',
-      uploadDate: '2026-06-18',
-      uploadedBy: 'Compliance Officer',
-      status: 'Active',
-      size: '1.2 MB',
-    },
-    {
-      id: 5,
-      name: 'AI Model Specifications',
-      type: 'PDF',
-      uploadDate: '2026-06-15',
-      uploadedBy: 'Tech Lead',
-      status: 'Archived',
-      size: '3.5 MB',
-    },
-  ]);
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+
+  useEffect(() => {
+    loadDocuments();
+  }, []);
+
+  const loadDocuments = async () => {
+    try {
+      setLoading(true);
+      const res = await fetchDocuments();
+      if (res.success && res.documents) {
+        // Map backend document to UI document
+        const mapped = res.documents.map((doc, idx) => ({
+          id: doc.id || idx,
+          filename: doc.filename,
+          name: doc.filename.split('.').slice(0, -1).join('.') || doc.filename,
+          type: doc.filename.split('.').pop().toUpperCase(),
+          uploadDate: new Date(doc.createdAt).toLocaleDateString(),
+          uploadedBy: doc.userId || 'System',
+          status: 'Active',
+          size: 'Unknown',
+        }));
+        setDocuments(mapped);
+      }
+    } catch (err) {
+      console.error(err);
+      showSuccessToast('Failed to load documents');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Get unique file types for filter
   const fileTypes = ['All', ...new Set(documents.map((doc) => doc.type))];
@@ -79,24 +65,29 @@ const KnowledgeBase = () => {
   };
 
   // Handle drop
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      const newDoc = {
-        id: documents.length + 1,
-        name: file.name.replace(/\.[^/.]+$/, ''),
-        type: file.name.split('.').pop().toUpperCase(),
-        uploadDate: new Date().toISOString().split('T')[0],
-        uploadedBy: 'Current User',
-        status: 'Active',
-        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-      };
-      setDocuments([newDoc, ...documents]);
+      await handleFileUpload(file);
+    }
+  };
+
+  const handleFileUpload = async (file) => {
+    try {
+      setUploading(true);
+      showSuccessToast(`Uploading ${file.name}...`);
+      await uploadDocument(file);
       showSuccessToast(`${file.name} uploaded successfully!`);
+      loadDocuments();
+    } catch (err) {
+      console.error(err);
+      showSuccessToast(`Upload failed for ${file.name}`);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -108,10 +99,16 @@ const KnowledgeBase = () => {
   };
 
   // Delete document
-  const handleDelete = (id) => {
-    const doc = documents.find((d) => d.id === id);
-    setDocuments(documents.filter((d) => d.id !== id));
-    showSuccessToast(`${doc.name} deleted successfully!`);
+  const handleDelete = async (id, filename) => {
+    if (!window.confirm(`Are you sure you want to delete ${filename}?`)) return;
+    try {
+      await deleteDocument(filename);
+      showSuccessToast(`${filename} deleted successfully!`);
+      loadDocuments();
+    } catch (err) {
+      console.error(err);
+      showSuccessToast(`Failed to delete ${filename}`);
+    }
   };
 
   // Preview document (mock)
@@ -128,20 +125,11 @@ const KnowledgeBase = () => {
   const handleUploadClick = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.onchange = (e) => {
+    input.accept = '.pdf,.txt,.md,.csv,.xlsx,.docx';
+    input.onchange = async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const newDoc = {
-          id: documents.length + 1,
-          name: file.name.replace(/\.[^/.]+$/, ''),
-          type: file.name.split('.').pop().toUpperCase(),
-          uploadDate: new Date().toISOString().split('T')[0],
-          uploadedBy: 'Current User',
-          status: 'Active',
-          size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-        };
-        setDocuments([newDoc, ...documents]);
-        showSuccessToast(`${file.name} uploaded successfully!`);
+        await handleFileUpload(file);
       }
     };
     input.click();
@@ -283,7 +271,7 @@ const KnowledgeBase = () => {
                           ⬇️
                         </button>
                         <button
-                          onClick={() => handleDelete(doc.id)}
+                          onClick={() => handleDelete(doc.id, doc.filename)}
                           className="inline-flex items-center rounded-lg bg-red-500/15 px-3 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/25 hover:text-red-200"
                           title="Delete"
                         >

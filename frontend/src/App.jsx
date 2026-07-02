@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import Layout from './components/Layout';
 
 import Register from './pages/Register';
 import VerifyOtp from './pages/VerifyOtp';
@@ -13,7 +14,7 @@ import Feedback from './pages/Feedback';
 import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import AdminDashboard from './pages/AdminDashboard';
+
 import KnowledgeBase from './pages/admin/KnowledgeBase';
 import PromptTesting from './pages/admin/PromptTesting';
 import Analytics from './pages/admin/Analytics';
@@ -37,61 +38,21 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             
             {/* Protected Private Routes */}
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/chat" 
-              element={
-                <ProtectedRoute>
-                  <Chat />
-                </ProtectedRoute>
-              } 
-            />
-            <Route
-              path="/history"
-              element={
-                <ProtectedRoute>
-                  <ConversationHistory />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/knowledge"
-              element={
-                <ProtectedRoute>
-                  <KnowledgeSources />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/feedback"
-              element={
-                <ProtectedRoute>
-                  <Feedback />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              }
-            />
+            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/chat" element={<Chat />} />
+              <Route path="/history" element={<ConversationHistory />} />
+              <Route path="/knowledge" element={<KnowledgeSources />} />
+              <Route path="/feedback" element={<Feedback />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
 
             {/* Admin Dashboard Routes */}
             <Route
               path="/admin/dashboard"
               element={
-                <ProtectedRoute>
-                  <AdminDashboard />
+                <ProtectedRoute requiredRole="ADMIN">
+                  <Layout />
                 </ProtectedRoute>
               }
             >

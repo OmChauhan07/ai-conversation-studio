@@ -13,7 +13,8 @@ from app.api.chat import router as chat_router
 from app.api.retrieval import router as retrieval_router
 from app.api.knowledge import router as knowledge_router
 from app.api.prompts import router as prompts_router
-from app.api.evaluation import router as evaluation_router
+from app.api.feedback import router as feedback_router
+from app.api.admin import router as admin_router
 
 from app.core.logging import setup_logging
 
@@ -50,7 +51,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         # Replace after Vercel deployment
-        "https://ai-conversation-studio-phi.vercel.app/",
+        "https://ai-conversation-studio-phi.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -62,7 +63,8 @@ app.include_router(chat_router)
 app.include_router(retrieval_router)
 app.include_router(knowledge_router)
 app.include_router(prompts_router)
-app.include_router(evaluation_router)
+app.include_router(feedback_router)
+app.include_router(admin_router)
 
 
 @app.get("/")

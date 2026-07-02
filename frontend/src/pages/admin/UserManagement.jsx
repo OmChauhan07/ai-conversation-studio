@@ -1,64 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import api from '../../api/axiosConfig';
 
 const UserManagement = () => {
-  // Mock user data
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: 'Alice Johnson',
-      email: 'alice.johnson@company.com',
-      role: 'Admin',
-      status: 'Active',
-      lastLogin: '2026-06-30 14:25',
-      initials: 'AJ',
-    },
-    {
-      id: 2,
-      name: 'Bob Smith',
-      email: 'bob.smith@company.com',
-      role: 'User',
-      status: 'Active',
-      lastLogin: '2026-06-29 10:15',
-      initials: 'BS',
-    },
-    {
-      id: 3,
-      name: 'Carol Williams',
-      email: 'carol.williams@company.com',
-      role: 'User',
-      status: 'Active',
-      lastLogin: '2026-06-28 16:42',
-      initials: 'CW',
-    },
-    {
-      id: 4,
-      name: 'David Brown',
-      email: 'david.brown@company.com',
-      role: 'Admin',
-      status: 'Suspended',
-      lastLogin: '2026-06-20 09:30',
-      initials: 'DB',
-    },
-    {
-      id: 5,
-      name: 'Emma Davis',
-      email: 'emma.davis@company.com',
-      role: 'User',
-      status: 'Active',
-      lastLogin: '2026-06-29 13:20',
-      initials: 'ED',
-    },
-    {
-      id: 6,
-      name: 'Frank Miller',
-      email: 'frank.miller@company.com',
-      role: 'User',
-      status: 'Active',
-      lastLogin: '2026-06-27 11:50',
-      initials: 'FM',
-    },
-  ]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -70,6 +16,31 @@ const UserManagement = () => {
   });
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get('/api/admin/users');
+      if (data.success) {
+        // Map data to match existing UI
+        const mappedUsers = data.data.map(u => ({
+          ...u,
+          status: u.status || 'Active',
+          lastLogin: new Date(u.createdAt).toLocaleDateString(), // Mocking lastLogin with createdAt for now
+          initials: getInitials(u.name || u.email || '?'),
+        }));
+        setUsers(mappedUsers);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Show success toast
   const showSuccessToast = (message) => {
@@ -120,66 +91,52 @@ const UserManagement = () => {
   };
 
   // Save user (create or update)
-  const handleSaveUser = () => {
-    if (!formData.name || !formData.email || !formData.role) {
-      showSuccessToast('Please fill in all required fields');
+  const handleSaveUser = async () => {
+    if (!formData.email || !formData.role) {
+      showSuccessToast('Please fill in email and role');
       return;
     }
 
-    if (editingId) {
-      // Update existing user
-      setUsers(
-        users.map((u) =>
-          u.id === editingId
-            ? {
-                ...u,
-                name: formData.name,
-                email: formData.email,
-                role: formData.role,
-                initials: getInitials(formData.name),
-              }
-            : u
-        )
-      );
-      showSuccessToast(`User "${formData.name}" updated successfully!`);
-    } else {
-      // Create new user
-      const newUser = {
-        id: Math.max(...users.map((u) => u.id)) + 1,
-        name: formData.name,
-        email: formData.email,
-        role: formData.role,
-        status: 'Active',
-        lastLogin: new Date().toLocaleString(),
-        initials: getInitials(formData.name),
-      };
-      setUsers([newUser, ...users]);
-      showSuccessToast(`User "${formData.name}" created successfully!`);
+    try {
+      if (editingId) {
+        // Update user role
+        await api.patch(`/api/admin/users/${editingId}/role`, { role: formData.role });
+        showSuccessToast(`User updated successfully!`);
+      } else {
+        // Mock create user since auth isn't exposing this directly yet, or use register endpoint
+        showSuccessToast('User creation must go through standard registration for now');
+      }
+      setShowModal(false);
+      fetchUsers();
+    } catch (error) {
+      console.error(error);
+      showSuccessToast('Operation failed');
     }
-
-    setShowModal(false);
   };
 
   // Delete user
-  const handleDelete = (user) => {
-    setUsers(users.filter((u) => u.id !== user.id));
-    showSuccessToast(`User "${user.name}" deleted!`);
+  const handleDelete = async (user) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    try {
+      await api.delete(`/api/admin/users/${user.id}`);
+      showSuccessToast(`User deleted!`);
+      fetchUsers();
+    } catch (error) {
+      console.error(error);
+      showSuccessToast('Failed to delete user');
+    }
   };
 
   // Suspend/Activate user
-  const handleToggleSuspend = (user) => {
-    setUsers(
-      users.map((u) =>
-        u.id === user.id
-          ? {
-              ...u,
-              status: u.status === 'Active' ? 'Suspended' : 'Active',
-            }
-          : u
-      )
-    );
-    const newStatus = user.status === 'Active' ? 'Suspended' : 'Active';
-    showSuccessToast(`User "${user.name}" is now ${newStatus}!`);
+  const handleToggleSuspend = async (user) => {
+    try {
+      await api.patch(`/api/admin/users/${user.id}/status`);
+      showSuccessToast(`User status toggled!`);
+      fetchUsers();
+    } catch (error) {
+      console.error(error);
+      showSuccessToast('Failed to toggle status');
+    }
   };
 
   return (
@@ -230,7 +187,7 @@ const UserManagement = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div
-                          className={`flex h-10 w-10 items-center justify-center rounded-full ${getAvatarColor(user.id)} font-semibold text-white`}
+                          className={`flex h-10 w-10 items-center justify-center rounded-full bg-slate-800 font-semibold text-white`}
                         >
                           {user.initials}
                         </div>

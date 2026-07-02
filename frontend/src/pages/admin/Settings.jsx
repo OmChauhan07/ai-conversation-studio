@@ -29,8 +29,19 @@ const Settings = () => {
     },
   };
 
-  // Settings state
-  const [settings, setSettings] = useState(defaultSettings);
+  // Load initial settings from localStorage or fallback to defaults
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('appSettings');
+    if (saved) {
+      try {
+        return { ...defaultSettings, ...JSON.parse(saved) };
+      } catch (e) {
+        return defaultSettings;
+      }
+    }
+    return defaultSettings;
+  });
+  
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -89,6 +100,7 @@ const Settings = () => {
 
   // Save changes
   const handleSaveChanges = () => {
+    localStorage.setItem('appSettings', JSON.stringify(settings));
     showSuccessToast('Settings saved successfully!');
     setHasChanges(false);
   };
@@ -96,6 +108,7 @@ const Settings = () => {
   // Reset to default
   const handleReset = () => {
     setSettings(defaultSettings);
+    localStorage.removeItem('appSettings');
     setHasChanges(false);
     showSuccessToast('Settings reset to default!');
   };

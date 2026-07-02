@@ -1,4 +1,4 @@
-const { getAllUsers, updateUserRole } = require('../services/adminService');
+const { getAllUsers, updateUserRole, toggleUserStatus, deleteUser } = require('../services/adminService');
 
 const sendError = (res, error) => {
   if (error.statusCode === 403) {
@@ -42,7 +42,36 @@ const changeUserRole = async (req, res) => {
   }
 };
 
+const toggleStatus = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const user = await toggleUserStatus(req.user.id, id);
+    return res.json({
+      success: true,
+      message: 'User status updated successfully.',
+      data: user,
+    });
+  } catch (error) {
+    return sendError(res, error);
+  }
+};
+
+const removeUser = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await deleteUser(req.user.id, id);
+    return res.json({
+      success: true,
+      message: 'User deleted successfully.',
+    });
+  } catch (error) {
+    return sendError(res, error);
+  }
+};
+
 module.exports = {
   listUsers,
   changeUserRole,
+  toggleStatus,
+  removeUser,
 };

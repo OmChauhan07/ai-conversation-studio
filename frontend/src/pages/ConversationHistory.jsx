@@ -1,55 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { fetchConversations, fetchConversationMessages, deleteConversation } from '../api/aiApi';
 
-const mockConversations = [
-  {
-    id: 'AC-00124',
-    question: 'How can I improve response accuracy for policy questions?',
-    date: '2026-06-28',
-    aiScore: '93%',
-    status: 'Resolved',
-    conversation: [
-      { sender: 'user', text: 'How can I improve response accuracy for policy questions?' },
-      { sender: 'ai', text: 'Focus on clear prompt structure, cite your sources, and add a relevance check step to your review process.' },
-    ],
-  },
-  {
-    id: 'AC-00123',
-    question: 'What is our preferred process for escalation?',
-    date: '2026-06-27',
-    aiScore: '88%',
-    status: 'Review',
-    conversation: [
-      { sender: 'user', text: 'What is our preferred process for escalation?' },
-      { sender: 'ai', text: 'Use the incident tracker, notify the policy team, and route approvals through the compliance dashboard.' },
-    ],
-  },
-  {
-    id: 'AC-00122',
-    question: 'Summarize the compliance checklist for launch.',
-    date: '2026-06-26',
-    aiScore: '95%',
-    status: 'Resolved',
-    conversation: [
-      { sender: 'user', text: 'Summarize the compliance checklist for launch.' },
-      { sender: 'ai', text: 'Ensure controls are in place for data privacy, risk review, model guardrails, and user consent validation.' },
-    ],
-  },
-  {
-    id: 'AC-00121',
-    question: 'List the key risks for AI hallucinations.',
-    date: '2026-06-25',
-    aiScore: '89%',
-    status: 'Pending',
-    conversation: [
-      { sender: 'user', text: 'List the key risks for AI hallucinations.' },
-      { sender: 'ai', text: 'Hallucinations can impact trust, compliance, and decision accuracy. Mitigate them with grounding, verification, and human review.' },
-    ],
-  },
-];
-
-const statusOptions = ['All', 'Resolved', 'Review', 'Pending'];
+const statusOptions = ['All'];
 
 const ConversationHistory = () => {
   const navigate = useNavigate();
@@ -57,21 +11,71 @@ const ConversationHistory = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [sortOrder, setSortOrder] = useState('desc');
   const [selectedConversation, setSelectedConversation] = useState(null);
+  const [messages, setMessages] = useState([]);
+  
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  useEffect(() => {
+    loadConversations();
+  }, []);
+
+  const loadConversations = async () => {
+    try {
+      const data = await fetchConversations();
+      if (data.success) {
+        setConversations(data.conversations || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch conversations:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewConversation = async (conversation) => {
+    setSelectedConversation(conversation);
+    setLoadingMessages(true);
+    setMessages([]);
+    try {
+      const data = await fetchConversationMessages(conversation.id);
+      if (data.success) {
+        setMessages(data.messages || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch messages:", error);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const handleDeleteConversation = async (id, e) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this conversation?")) return;
+    try {
+      const data = await deleteConversation(id);
+      if (data.success) {
+        setConversations(conversations.filter(c => c.id !== id));
+      }
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+    }
+  };
 
   const filteredAndSorted = useMemo(() => {
-    return [...mockConversations]
+    return [...conversations]
       .filter((item) => {
         const query = search.toLowerCase();
-        const matchesSearch = item.id.toLowerCase().includes(query) || item.question.toLowerCase().includes(query);
-        const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
-        return matchesSearch && matchesStatus;
+        const matchesSearch = item.id.toLowerCase().includes(query) || (item.title && item.title.toLowerCase().includes(query));
+        return matchesSearch;
       })
       .sort((a, b) => {
-        const dateA = new Date(a.date).getTime();
-        const dateB = new Date(b.date).getTime();
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       });
-  }, [search, statusFilter, sortOrder]);
+  }, [search, statusFilter, sortOrder, conversations]);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.08),transparent_18%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.05),transparent_22%),linear-gradient(180deg,#040612_0%,#090f1d_45%,#07101b_100%)] text-slate-100">
@@ -106,19 +110,6 @@ const ConversationHistory = () => {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <label className="sr-only" htmlFor="status-filter">Filter status</label>
-                <select
-                  id="status-filter"
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
-                  className="rounded-3xl border border-white/10 bg-slate-900/90 px-4 py-3 text-sm text-slate-100 outline-none focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/10"
-                >
-                  {statusOptions.map((option) => (
-                    <option key={option} value={option} className="bg-slate-950 text-slate-100">
-                      {option}
-                    </option>
-                  ))}
-                </select>
                 <button
                   type="button"
                   onClick={() => setSortOrder((current) => (current === 'desc' ? 'asc' : 'desc'))}
@@ -137,42 +128,47 @@ const ConversationHistory = () => {
         </div>
 
         <div className="overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/95 shadow-[0_40px_120px_-80px_rgba(0,0,0,0.6)] backdrop-blur-xl">
-          <table className="min-w-full border-separate border-spacing-y-3 text-left text-sm">
-            <thead>
-              <tr className="text-slate-500">
-                <th className="px-4 py-4">Conversation ID</th>
-                <th className="px-4 py-4">Question</th>
-                <th className="px-4 py-4">Date</th>
-                <th className="px-4 py-4">AI Score</th>
-                <th className="px-4 py-4">Status</th>
-                <th className="px-4 py-4" />
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAndSorted.map((conversation) => (
-                <tr key={conversation.id} className="rounded-[20px] bg-slate-900/80 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.4)] transition hover:bg-slate-900/90">
-                  <td className="px-4 py-4 text-slate-200">{conversation.id}</td>
-                  <td className="px-4 py-4 text-slate-200 max-w-[420px]">{conversation.question}</td>
-                  <td className="px-4 py-4 text-slate-400">{conversation.date}</td>
-                  <td className="px-4 py-4 text-slate-200">{conversation.aiScore}</td>
-                  <td className="px-4 py-4">
-                    <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${conversation.status === 'Resolved' ? 'bg-emerald-500/10 text-emerald-200' : conversation.status === 'Review' ? 'bg-sky-500/10 text-sky-200' : 'bg-amber-500/10 text-amber-200'}`}>
-                      {conversation.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedConversation(conversation)}
-                      className="rounded-3xl border border-white/10 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20"
-                    >
-                      View Conversation
-                    </button>
-                  </td>
+          {loading ? (
+             <div className="py-10 text-center text-sky-400">Loading history...</div>
+          ) : filteredAndSorted.length === 0 ? (
+             <div className="py-10 text-center text-slate-500">No conversations found.</div>
+          ) : (
+            <table className="min-w-full border-separate border-spacing-y-3 text-left text-sm">
+              <thead>
+                <tr className="text-slate-500">
+                  <th className="px-4 py-4">Conversation ID</th>
+                  <th className="px-4 py-4">Title</th>
+                  <th className="px-4 py-4">Date</th>
+                  <th className="px-4 py-4 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredAndSorted.map((conversation) => (
+                  <tr key={conversation.id} className="rounded-[20px] bg-slate-900/80 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.4)] transition hover:bg-slate-900/90">
+                    <td className="px-4 py-4 text-slate-200">{conversation.id.slice(0, 8)}...</td>
+                    <td className="px-4 py-4 text-slate-200 max-w-[420px]">{conversation.title}</td>
+                    <td className="px-4 py-4 text-slate-400">{new Date(conversation.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-4 flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleViewConversation(conversation)}
+                        className="rounded-3xl border border-white/10 bg-sky-500/10 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20"
+                      >
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteConversation(conversation.id, e)}
+                        className="rounded-3xl border border-white/10 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/20"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {selectedConversation && (
@@ -182,11 +178,11 @@ const ConversationHistory = () => {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-lg"
           >
-            <div className="w-full max-w-3xl overflow-hidden rounded-[32px] border border-white/10 bg-slate-950/95 shadow-[0_40px_120px_-80px_rgba(0,0,0,0.9)]">
+            <div className="w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden rounded-[32px] border border-white/10 bg-slate-950/95 shadow-[0_40px_120px_-80px_rgba(0,0,0,0.9)]">
               <div className="flex flex-col gap-4 border-b border-white/10 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.35em] text-sky-400">Conversation details</p>
-                  <h2 className="mt-1 text-2xl font-semibold text-white">{selectedConversation.id}</h2>
+                  <h2 className="mt-1 text-2xl font-semibold text-white">{selectedConversation.title}</h2>
                 </div>
                 <button
                   type="button"
@@ -196,30 +192,20 @@ const ConversationHistory = () => {
                   Close
                 </button>
               </div>
-              <div className="space-y-4 px-6 py-6">
-                <p className="text-sm text-slate-400">Question: <span className="font-medium text-slate-100">{selectedConversation.question}</span></p>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-3xl bg-slate-900/80 p-4 text-sm text-slate-300">
-                    <p className="text-slate-400">Date</p>
-                    <p className="mt-2 font-semibold text-white">{selectedConversation.date}</p>
-                  </div>
-                  <div className="rounded-3xl bg-slate-900/80 p-4 text-sm text-slate-300">
-                    <p className="text-slate-400">AI Score</p>
-                    <p className="mt-2 font-semibold text-white">{selectedConversation.aiScore}</p>
-                  </div>
-                  <div className="rounded-3xl bg-slate-900/80 p-4 text-sm text-slate-300">
-                    <p className="text-slate-400">Status</p>
-                    <p className="mt-2 font-semibold text-white">{selectedConversation.status}</p>
-                  </div>
-                </div>
-
-                <div className="rounded-[24px] border border-white/10 bg-slate-900/90 p-5">
-                  {selectedConversation.conversation.map((message, index) => (
-                    <div key={index} className={`mb-4 rounded-[24px] p-4 ${message.sender === 'ai' ? 'bg-slate-800/90' : 'bg-slate-950/90 text-slate-100'}`}>
-                      <p className="text-xs uppercase tracking-[0.25em] text-slate-500">{message.sender === 'ai' ? 'AI' : 'User'}</p>
-                      <p className="mt-2 text-sm leading-7 text-slate-200">{message.text}</p>
-                    </div>
-                  ))}
+              <div className="flex-1 overflow-y-auto px-6 py-6">
+                <div className="rounded-[24px] border border-white/10 bg-slate-900/90 p-5 min-h-[200px]">
+                  {loadingMessages ? (
+                     <div className="py-10 text-center text-sky-400">Loading messages...</div>
+                  ) : messages.length === 0 ? (
+                     <div className="py-10 text-center text-slate-500">No messages found.</div>
+                  ) : (
+                      messages.map((message, index) => (
+                        <div key={index} className={`mb-4 rounded-[24px] p-4 ${message.role === 'ai' || message.role === 'assistant' ? 'bg-slate-800/90' : 'bg-slate-950/90 text-slate-100'}`}>
+                          <p className="text-xs uppercase tracking-[0.25em] text-slate-500">{message.role === 'ai' || message.role === 'assistant' ? 'AI' : 'User'}</p>
+                          <p className="mt-2 text-sm leading-7 text-slate-200 whitespace-pre-wrap">{message.content}</p>
+                        </div>
+                      ))
+                  )}
                 </div>
               </div>
             </div>

@@ -9,19 +9,10 @@ const suggestedPrompts = [
   'Generate a compliance checklist',
 ];
 
-const initialMessages = [
-  {
-    id: 1,
-    sender: 'ai',
-    text: 'Welcome back! Ask me anything about your AI conversations, coverage, or policy guidance.',
-    confidence: '94%',
-    source: 'Welcome-Guide',
-  },
-];
-
 const Chat = () => {
   const navigate = useNavigate();
-  const [chatHistory, setChatHistory] = useState(initialMessages);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [conversationId, setConversationId] = useState(null);
   const [draft, setDraft] = useState('');
   const [typing, setTyping] = useState(false);
   const [likedMessages, setLikedMessages] = useState({});
@@ -53,15 +44,19 @@ const Chat = () => {
     setTyping(true);
 
     try {
-      const response = await sendChatMessage(trimmed);
+      const response = await sendChatMessage(trimmed, conversationId);
       
+      if (response.conversationId && !conversationId) {
+        setConversationId(response.conversationId);
+      }
+
       setChatHistory((history) => [
         ...history,
         {
           id: Date.now() + 1,
           sender: 'ai',
           text: response.answer || "I'm sorry, I couldn't generate an answer.",
-          confidence: 'N/A', // Assuming backend doesn't provide this yet
+          confidence: 'N/A',
           source: (response.sources && response.sources.length > 0) ? response.sources[0] : 'Knowledge Base',
           metadata: response.metadata
         },

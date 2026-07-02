@@ -26,6 +26,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String)
     role = Column(Enum(UserRole, name="Role", create_type=False), default=UserRole.USER)
+    status = Column(String, default="Active")
     isVerified = Column(Boolean, default=False)
     otp = Column(String, nullable=True)
     otpExpiresAt = Column(DateTime, nullable=True)
@@ -91,4 +92,14 @@ class PromptRun(Base):
     model = Column(String)
     provider = Column(String)
     createdAt = Column(DateTime, default=datetime.utcnow)
+
+class Feedback(Base):
+    __tablename__ = "Feedback"
+    id = Column(String, primary_key=True)
+    userId = Column(String, ForeignKey("User.id"))
+    conversationId = Column(String, ForeignKey("Conversation.id"))
+    rating = Column(Integer)  # 1 to 5
+    comment = Column(Text, nullable=True)
+    createdAt = Column(DateTime, default=datetime.utcnow)
+
 

@@ -1,55 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { fetchPrompts, createPrompt, updatePrompt, deletePrompt } from '../../api/aiApi';
 
 const PromptTesting = () => {
-  // Mock prompt data
-  const [prompts, setPrompts] = useState([
-    {
-      id: 1,
-      name: 'Content Summarization',
-      description: 'Summarizes large texts into concise bullet points',
-      model: 'GPT-4',
-      status: 'Active',
-      lastUpdated: '2026-06-28',
-      template: 'Summarize the following content in 3-5 bullet points: {content}',
-    },
-    {
-      id: 2,
-      name: 'Safety Guideline Checker',
-      description: 'Checks content for compliance with company policies',
-      model: 'GPT-4',
-      status: 'Active',
-      lastUpdated: '2026-06-25',
-      template: 'Review the following for compliance with safety guidelines: {content}',
-    },
-    {
-      id: 3,
-      name: 'FAQ Generator',
-      description: 'Generates FAQ responses from documentation',
-      model: 'GPT-3.5',
-      status: 'Active',
-      lastUpdated: '2026-06-20',
-      template: 'Generate a FAQ response for this question: {question}',
-    },
-    {
-      id: 4,
-      name: 'Sentiment Analysis',
-      description: 'Analyzes sentiment and tone of user messages',
-      model: 'GPT-3.5',
-      status: 'Inactive',
-      lastUpdated: '2026-06-15',
-      template: 'Analyze the sentiment of: {text}',
-    },
-    {
-      id: 5,
-      name: 'Email Drafting',
-      description: 'Generates professional email responses',
-      model: 'GPT-4',
-      status: 'Active',
-      lastUpdated: '2026-06-10',
-      template: 'Draft a professional response to: {email}',
-    },
-  ]);
+  const [prompts, setPrompts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -61,105 +16,120 @@ const PromptTesting = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
 
-  // Show success toast
+  useEffect(() => {
+    loadPrompts();
+  }, []);
+
+  const loadPrompts = async () => {
+    try {
+      const data = await fetchPrompts();
+      if (data.success) {
+        setPrompts(data.prompts || []);
+      }
+    } catch (error) {
+      console.error("Failed to load prompts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const showSuccessToast = (message) => {
     setToastMessage(message);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  // Open modal for creating new prompt
   const handleCreateClick = () => {
     setEditingId(null);
     setFormData({ name: '', description: '', template: '' });
     setShowModal(true);
   };
 
-  // Open modal for editing prompt
   const handleEditClick = (prompt) => {
     setEditingId(prompt.id);
     setFormData({
       name: prompt.name,
       description: prompt.description,
-      template: prompt.template,
+      template: prompt.content,
     });
     setShowModal(true);
   };
 
-  // Save prompt (create or update)
-  const handleSavePrompt = () => {
+  const handleSavePrompt = async () => {
     if (!formData.name || !formData.description || !formData.template) {
       showSuccessToast('Please fill in all fields');
       return;
     }
 
-    if (editingId) {
-      // Update existing prompt
-      setPrompts(
-        prompts.map((p) =>
-          p.id === editingId
-            ? {
-                ...p,
-                name: formData.name,
-                description: formData.description,
-                template: formData.template,
-                lastUpdated: new Date().toISOString().split('T')[0],
-              }
-            : p
-        )
-      );
-      showSuccessToast(`Prompt "${formData.name}" updated successfully!`);
-    } else {
-      // Create new prompt
-      const newPrompt = {
-        id: prompts.length + 1,
-        name: formData.name,
-        description: formData.description,
-        template: formData.template,
-        model: 'GPT-4',
-        status: 'Active',
-        lastUpdated: new Date().toISOString().split('T')[0],
-      };
-      setPrompts([newPrompt, ...prompts]);
-      showSuccessToast(`Prompt "${formData.name}" created successfully!`);
+    try {
+      if (editingId) {
+        const data = await updatePrompt(editingId, {
+          name: formData.name,
+          description: formData.description,
+          content: formData.template
+        });
+        if (data.success) {
+          showSuccessToast(`Prompt "${formData.name}" updated successfully!`);
+        }
+      } else {
+        const data = await createPrompt({
+          name: formData.name,
+          description: formData.description,
+          content: formData.template
+        });
+        if (data.success) {
+          showSuccessToast(`Prompt "${formData.name}" created successfully!`);
+        }
+      }
+      await loadPrompts();
+    } catch (error) {
+      console.error("Failed to save prompt:", error);
+      showSuccessToast('Error saving prompt');
     }
 
     setShowModal(false);
   };
 
-  // Duplicate prompt
-  const handleDuplicate = (prompt) => {
-    const duplicated = {
-      ...prompt,
-      id: Math.max(...prompts.map((p) => p.id)) + 1,
-      name: `${prompt.name} (Copy)`,
-      lastUpdated: new Date().toISOString().split('T')[0],
-    };
-    setPrompts([duplicated, ...prompts]);
-    showSuccessToast(`Prompt "${prompt.name}" duplicated!`);
+  const handleDuplicate = async (prompt) => {
+    try {
+      const data = await createPrompt({
+        name: `${prompt.name} (Copy)`,
+        description: prompt.description,
+        content: prompt.content
+      });
+      if (data.success) {
+        showSuccessToast(`Prompt "${prompt.name}" duplicated!`);
+        await loadPrompts();
+      }
+    } catch (error) {
+       console.error("Failed to duplicate:", error);
+    }
   };
 
-  // Delete prompt
-  const handleDelete = (prompt) => {
-    setPrompts(prompts.filter((p) => p.id !== prompt.id));
-    showSuccessToast(`Prompt "${prompt.name}" deleted!`);
+  const handleDelete = async (prompt) => {
+    if (!window.confirm(`Are you sure you want to delete ${prompt.name}?`)) return;
+    try {
+      const data = await deletePrompt(prompt.id);
+      if (data.success) {
+        showSuccessToast(`Prompt "${prompt.name}" deleted!`);
+        await loadPrompts();
+      }
+    } catch (error) {
+      console.error("Failed to delete prompt:", error);
+    }
   };
 
-  // Toggle prompt status
-  const handleToggleStatus = (prompt) => {
-    setPrompts(
-      prompts.map((p) =>
-        p.id === prompt.id
-          ? {
-              ...p,
-              status: p.status === 'Active' ? 'Inactive' : 'Active',
-              lastUpdated: new Date().toISOString().split('T')[0],
-            }
-          : p
-      )
-    );
-    const newStatus = prompt.status === 'Active' ? 'Inactive' : 'Active';
-    showSuccessToast(`Prompt "${prompt.name}" is now ${newStatus}!`);
+  const handleToggleStatus = async (prompt) => {
+    try {
+      const newStatus = !prompt.isFavorite;
+      const data = await updatePrompt(prompt.id, { isFavorite: newStatus });
+      if (data.success) {
+        showSuccessToast(`Prompt "${prompt.name}" is now ${newStatus ? 'Favorite' : 'Unfavorited'}!`);
+        await loadPrompts();
+      }
+    } catch (error) {
+      console.error("Failed to toggle status:", error);
+    }
   };
 
   return (
@@ -185,15 +155,16 @@ const PromptTesting = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        {prompts.length > 0 ? (
+        {loading ? (
+             <div className="px-6 py-12 text-center text-sky-400">Loading prompts...</div>
+        ) : prompts.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full border-separate border-spacing-y-0 text-left text-sm">
               <thead className="border-b border-white/10 bg-slate-900/80">
                 <tr>
                   <th className="px-6 py-4 font-semibold text-slate-300">Prompt Name</th>
                   <th className="px-6 py-4 font-semibold text-slate-300">Description</th>
-                  <th className="px-6 py-4 font-semibold text-slate-300">AI Model</th>
-                  <th className="px-6 py-4 font-semibold text-slate-300">Status</th>
+                  <th className="px-6 py-4 font-semibold text-slate-300">Favorite</th>
                   <th className="px-6 py-4 font-semibold text-slate-300">Last Updated</th>
                   <th className="px-6 py-4 font-semibold text-slate-300">Actions</th>
                 </tr>
@@ -214,22 +185,17 @@ const PromptTesting = () => {
                       <p className="max-w-xs text-slate-400">{prompt.description}</p>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center rounded-full bg-blue-500/15 px-3 py-1 text-xs font-medium text-blue-300 ring-1 ring-blue-400/20">
-                        {prompt.model}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
                       <span
                         className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 ${
-                          prompt.status === 'Active'
+                          prompt.isFavorite
                             ? 'bg-green-500/15 text-green-300 ring-green-400/20'
                             : 'bg-slate-500/15 text-slate-300 ring-slate-400/20'
                         }`}
                       >
-                        {prompt.status}
+                        {prompt.isFavorite ? 'Yes' : 'No'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-slate-400">{prompt.lastUpdated}</td>
+                    <td className="px-6 py-4 text-slate-400">{new Date(prompt.createdAt).toLocaleDateString()}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <button
@@ -249,13 +215,13 @@ const PromptTesting = () => {
                         <button
                           onClick={() => handleToggleStatus(prompt)}
                           className={`inline-flex items-center rounded-lg px-3 py-2 text-xs font-medium transition ${
-                            prompt.status === 'Active'
+                            !prompt.isFavorite
                               ? 'bg-yellow-500/15 text-yellow-300 hover:bg-yellow-500/25'
                               : 'bg-green-500/15 text-green-300 hover:bg-green-500/25'
                           }`}
-                          title={prompt.status === 'Active' ? 'Disable' : 'Enable'}
+                          title={prompt.isFavorite ? 'Unfavorite' : 'Favorite'}
                         >
-                          {prompt.status === 'Active' ? '⏸️' : '▶️'}
+                          {prompt.isFavorite ? '⏸️' : '⭐'}
                         </button>
                         <button
                           onClick={() => handleDelete(prompt)}

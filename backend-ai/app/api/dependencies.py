@@ -1,12 +1,12 @@
 import os
 import jwt
-import os
-import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 
-JWT_SECRET = os.getenv("JWT_SECRET", "This_is_a_Testing_Auth_System")
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET environment variable is not set")
 security = HTTPBearer()
 
 def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
