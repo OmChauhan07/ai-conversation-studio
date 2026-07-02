@@ -9,7 +9,12 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is not defined in the environment variables.');
 }
 
-const pool = new Pool({ connectionString });
+const dbUrl = new URL(connectionString);
+if (['require', 'prefer', 'verify-ca'].includes(dbUrl.searchParams.get('sslmode'))) {
+  dbUrl.searchParams.set('sslmode', 'verify-full');
+}
+
+const pool = new Pool({ connectionString: dbUrl.toString() });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
