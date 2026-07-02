@@ -25,7 +25,7 @@ class User(Base):
     name = Column(String)
     email = Column(String, unique=True, index=True)
     password = Column(String)
-    role = Column(Enum(UserRole, create_type=False), default=UserRole.USER)
+    role = Column(Enum(UserRole, name="Role", create_type=False), default=UserRole.USER)
     isVerified = Column(Boolean, default=False)
     otp = Column(String, nullable=True)
     otpExpiresAt = Column(DateTime, nullable=True)
@@ -49,7 +49,7 @@ class Message(Base):
     __tablename__ = "Message"
     id = Column(String, primary_key=True)
     conversationId = Column(String, ForeignKey("Conversation.id"))
-    role = Column(Enum(MessageRole, create_type=False))
+    role = Column(Enum(MessageRole, name="messagerole", create_type=True))
     content = Column(Text)
     provider = Column(String, nullable=True)
     model = Column(String, nullable=True)
@@ -68,7 +68,7 @@ class UploadedDocument(Base):
     fileSize = Column(Integer)
     pages = Column(Integer, nullable=True)
     chunks = Column(Integer, nullable=True)
-    status = Column(Enum(DocumentStatus, create_type=False), default=DocumentStatus.PENDING)
+    status = Column(Enum(DocumentStatus, name="documentstatus", create_type=True), default=DocumentStatus.PENDING)
     uploadedAt = Column(DateTime, default=datetime.utcnow)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

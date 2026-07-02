@@ -1,21 +1,21 @@
 import os
 import jwt
-from fastapi import Request, HTTPException
+import os
+import jwt
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 
 JWT_SECRET = os.getenv("JWT_SECRET", "This_is_a_Testing_Auth_System")
+security = HTTPBearer()
 
-def get_current_user_id(request: Request) -> str:
+def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """
     Extracts the user ID from the Authorization Bearer JWT token.
     If valid, returns the user ID (str). 
     Raises HTTPException if missing or invalid.
     """
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-    
-    token = auth_header.split(" ")[1]
+    token = credentials.credentials
     
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])

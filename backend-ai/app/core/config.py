@@ -9,7 +9,7 @@ GEMINI_MODEL_NAME = os.getenv("GEMINI_MODEL_NAME")
 GROQ_MODEL_NAME = os.getenv("GROQ_MODEL_NAME")
 RETRIEVAL_MIN_SCORE = float(os.getenv("RETRIEVAL_MIN_SCORE", "0.3"))
 
-CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
+CHROMA_DB_PATH=/data/chroma_db
 CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "knowledge_base")
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "BAAI/bge-small-en-v1.5")
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")

@@ -6,7 +6,6 @@ from typing import Any
 from app.core.exceptions import KnowledgeBaseEmptyError
 from app.vector_store.chroma_client import get_collection
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -17,7 +16,7 @@ class ChromaService:
     Responsibilities:
     - Add document embeddings
     - Semantic search
-    - Delete documents
+    - Delete document embeddings
     """
 
     def __init__(self, collection=None):
@@ -26,7 +25,7 @@ class ChromaService:
     def _require_collection(self):
         if self.collection is None:
             logger.error("ChromaDB collection is unavailable.")
-            raise ValueError("Invalid collection")
+            raise ValueError("Invalid ChromaDB collection.")
 
         return self.collection
 
@@ -38,26 +37,31 @@ class ChromaService:
         embeddings: list[list[float]],
     ) -> dict[str, Any]:
 
-        try:
-            collection = self._require_collection()
+        collection = self._require_collection()
 
-            if len(documents) == 0:
-                logger.warning("No documents received for indexing.")
-                return {"added": 0}
+        if not documents:
+            logger.warning("No documents received for indexing.")
+            return {"added": 0}
 
-            if len(embeddings) != len(documents):
-                logger.error(
-                    "Embedding count (%d) does not match document count (%d).",
-                    len(embeddings),
-                    len(documents),
-                )
-                raise ValueError("Missing embeddings")
-
-            logger.info(
-                "Adding %d chunks to ChromaDB.",
-                len(documents),
+        if not (
+            len(ids)
+            == len(documents)
+            == len(metadatas)
+            == len(embeddings)
+        ):
+            logger.error(
+                "Document insertion failed because collection sizes do not match."
+            )
+            raise ValueError(
+                "ids, documents, metadatas and embeddings must all have the same length."
             )
 
+        logger.info(
+            "Adding %d document chunks to ChromaDB.",
+            len(documents),
+        )
+
+        try:
             collection.add(
                 ids=ids,
                 documents=documents,
@@ -70,7 +74,9 @@ class ChromaService:
                 len(documents),
             )
 
-            return {"added": len(documents)}
+            return {
+                "added": len(documents)
+            }
 
         except Exception:
             logger.exception("Failed to add documents to ChromaDB.")
@@ -82,28 +88,21 @@ class ChromaService:
         top_k: int = 5,
     ) -> list[dict[str, Any]]:
 
-        """
-        Search ChromaDB and return chunks with similarity scores.
-        """
+        collection = self._require_collection()
 
-        try:
-            collection = self._require_collection()
+        total_chunks = collection.count()
 
-            total_chunks = collection.count()
+        logger.info(
+            "Searching ChromaDB (%d indexed chunks).",
+            total_chunks,
+        )
 
-            logger.info(
-                "Searching ChromaDB (%d indexed chunks).",
-                total_chunks,
+        if total_chunks == 0:
+            raise KnowledgeBaseEmptyError(
+                "Knowledge base is empty."
             )
 
-            if total_chunks == 0:
-                logger.warning(
-                    "Search attempted on an empty knowledge base."
-                )
-                raise KnowledgeBaseEmptyError(
-                    "Knowledge base is empty."
-                )
-
+        try:
             result = collection.query(
                 query_embeddings=[query_embedding],
                 n_results=top_k,
@@ -114,66 +113,70 @@ class ChromaService:
                 ],
             )
 
-            documents = (result.get("documents") or [[]])[0]
-            metadatas = (result.get("metadatas") or [[]])[0]
-            distances = (result.get("distances") or [[]])[0]
-            ids = (result.get("ids") or [[]])[0]
+        except Exception:
+            logger.exception("ChromaDB query failed.")
+            raise
 
-            chunks = []
+        documents = (result.get("documents") or [[]])[0]
+        metadatas = (result.get("metadatas") or [[]])[0]
+        distances = (result.get("distances") or [[]])[0]
+        ids = (result.get("ids") or [[]])[0]
 
-            for i in range(len(documents)):
-                distance = distances[i]
+        chunks: list[dict[str, Any]] = []
 
-                similarity = max(
-                    0.0,
-                    min(
-                        1.0,
-                        1 - float(distance),
-                    ),
-                )
-
-                chunks.append(
-                    {
-                        "id": ids[i],
-                        "chunk": documents[i],
-                        "metadata": metadatas[i] or {},
-                        "distance": float(distance),
-                        "score": similarity,
-                    }
-                )
-
-            logger.info(
-                "ChromaDB returned %d matching chunks.",
-                len(chunks),
+        for doc_id, document, metadata, distance in zip(
+            ids,
+            documents,
+            metadatas,
+            distances,
+        ):
+            similarity = max(
+                0.0,
+                min(
+                    1.0,
+                    1 - float(distance),
+                ),
             )
 
-            return chunks
+            chunks.append(
+                {
+                    "id": doc_id,
+                    "chunk": document,
+                    "metadata": metadata or {},
+                    "distance": float(distance),
+                    "score": similarity,
+                }
+            )
 
-        except Exception:
-            logger.exception("ChromaDB search failed.")
-            raise
+        logger.info(
+            "Retrieved %d matching chunks.",
+            len(chunks),
+        )
+
+        return chunks
 
     def delete_document(
         self,
         filename: str,
     ):
 
+        collection = self._require_collection()
+
+        logger.info(
+            "Deleting document '%s' from ChromaDB.",
+            filename,
+        )
+
         try:
-            collection = self._require_collection()
-
-            logger.info(
-                "Deleting embeddings for document: %s",
-                filename,
-            )
-
             collection.delete(
                 where={
-                    "filename": filename
+                    "filename": filename,
                 }
             )
 
             logger.info(
-                "Embeddings deleted successfully."
+                "Successfully deleted embeddings for '%s'.",
+                filename,
             )
 
             return {
@@ -183,6 +186,7 @@ class ChromaService:
 
         except Exception:
             logger.exception(
-                "Failed to delete embeddings from ChromaDB."
+                "Failed to delete document '%s'.",
+                filename,
             )
             raise

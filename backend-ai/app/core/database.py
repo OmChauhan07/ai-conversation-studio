@@ -1,60 +1,80 @@
 import os
 import urllib.parse
+import logging
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-# 1. Fetch DATABASE_URL from environment or fallback
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL", 
-    "postgres://postgres:password@localhost:5432/mydb"
-)
+logger = logging.getLogger(__name__)
 
-# 2. Neon Postgres (and many Prisma connections) use connection parameters 
-# that psycopg2 (the default Postgres driver for SQLAlchemy if using postgresql://) 
-# or asyncpg might not understand directly, such as pgbouncer or channel_binding.
-# For SQLAlchemy with psycopg2, we need to ensure the schema is postgresql:// 
-# and strip unsupported params.
+# Get DATABASE_URL from environment
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Fix the schema for SQLAlchemy
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not configured.")
+
+# Convert postgres:// -> postgresql:// (for SQLAlchemy)
 if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgres://",
+        "postgresql://",
+        1
+    )
 
-# Strip out channel_binding if present (Prisma specific config that crashes psycopg2)
+# Remove unsupported Prisma parameter if present
 if "channel_binding" in DATABASE_URL:
-    parts = urllib.parse.urlparse(DATABASE_URL)
-    query_params = urllib.parse.parse_qs(parts.query)
-    if "channel_binding" in query_params:
-        del query_params["channel_binding"]
-    new_query = urllib.parse.urlencode(query_params, doseq=True)
-    parts = parts._replace(query=new_query)
-    DATABASE_URL = urllib.parse.urlunparse(parts)
+    parsed = urllib.parse.urlparse(DATABASE_URL)
+    query = urllib.parse.parse_qs(parsed.query)
+
+    query.pop("channel_binding", None)
+
+    parsed = parsed._replace(
+        query=urllib.parse.urlencode(query, doseq=True)
+    )
+
+    DATABASE_URL = urllib.parse.urlunparse(parsed)
 
 # Neon requires SSL
-connect_args = {"sslmode": "require"} if "neon.tech" in DATABASE_URL else {}
+connect_args = {}
 
-# 3. Create the SQLAlchemy engine
+if "neon.tech" in DATABASE_URL:
+    connect_args["sslmode"] = "require"
+
+# Create SQLAlchemy Engine
 try:
     engine = create_engine(
         DATABASE_URL,
         connect_args=connect_args,
-        pool_pre_ping=True
+        pool_pre_ping=True,
     )
-except Exception as e:
-    print(f"Error creating database engine: {e}")
+
+    logger.info("Database engine initialized successfully.")
+
+except Exception:
+    logger.exception("Failed to initialize database engine.")
     raise
 
-# 4. Create SessionLocal and Base
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# SQLAlchemy Session
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
+
+# Base Model
 Base = declarative_base()
 
-# 5. Dependency for FastAPI
+
+# Dependency
 def get_db():
     db = SessionLocal()
+
     try:
         yield db
+
     finally:
         db.close()

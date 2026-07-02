@@ -26,12 +26,8 @@ export const uploadDocument = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
   
-  // Note: let browser set Content-Type for FormData
-  const response = await aiApi.post('/knowledge/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  // Note: let browser set Content-Type for FormData automatically with boundary
+  const response = await aiApi.post('/knowledge/upload', formData);
   return response.data;
 };
 
