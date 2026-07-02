@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { sendChatMessage } from '../api/aiApi';
 
 const suggestedPrompts = [
   'Summarize latest product feedback',
@@ -14,25 +15,7 @@ const initialMessages = [
     sender: 'ai',
     text: 'Welcome back! Ask me anything about your AI conversations, coverage, or policy guidance.',
     confidence: '94%',
-    source: 'Welcome-Guide.pdf',
-  },
-];
-
-const sampleAiResponses = [
-  {
-    text: 'I recommend focusing on prompt clarity, source attribution, and guardrail checks for sensitive queries.',
-    confidence: '91%',
-    source: 'Policy-Playbook.pdf',
-  },
-  {
-    text: 'Your best option is to use short contextual prompts and verify answers against internal documentation.',
-    confidence: '88%',
-    source: 'AI-Testing-Guide.docx',
-  },
-  {
-    text: 'When evaluating accuracy, always prioritize user intent and filter out speculative statements.',
-    confidence: '93%',
-    source: 'Support-FAQ.md',
+    source: 'Welcome-Guide',
   },
 ];
 
@@ -52,37 +35,49 @@ const Chat = () => {
     scrollToLatest();
   }, [chatHistory, typing]);
 
-  const addAiResponse = () => {
-    const response = sampleAiResponses[Math.floor(Math.random() * sampleAiResponses.length)];
-    setChatHistory((history) => [
-      ...history,
-      {
-        id: Date.now(),
-        sender: 'ai',
-        text: response.text,
-        confidence: response.confidence,
-        source: response.source,
-      },
-    ]);
-    setTyping(false);
-  };
-
-  const sendMessage = (messageText) => {
+  const sendMessage = async (messageText) => {
     const trimmed = messageText.trim();
     if (!trimmed || typing) return;
 
+    const userMessageId = Date.now();
     setChatHistory((history) => [
       ...history,
       {
-        id: Date.now(),
+        id: userMessageId,
         sender: 'user',
         text: trimmed,
       },
     ]);
+    
     setDraft('');
     setTyping(true);
 
-    window.setTimeout(addAiResponse, 1200);
+    try {
+      const response = await sendChatMessage(trimmed);
+      
+      setChatHistory((history) => [
+        ...history,
+        {
+          id: Date.now() + 1,
+          sender: 'ai',
+          text: response.answer || "I'm sorry, I couldn't generate an answer.",
+          confidence: 'N/A', // Assuming backend doesn't provide this yet
+          source: (response.sources && response.sources.length > 0) ? response.sources[0] : 'Knowledge Base',
+          metadata: response.metadata
+        },
+      ]);
+    } catch (error) {
+      setChatHistory((history) => [
+        ...history,
+        {
+          id: Date.now() + 1,
+          sender: 'ai',
+          text: error.response?.data?.message || 'Sorry, an error occurred while connecting to the AI service.',
+        },
+      ]);
+    } finally {
+      setTyping(false);
+    }
   };
 
   const onSend = () => sendMessage(draft);
@@ -122,7 +117,7 @@ const Chat = () => {
               <p className="text-xs uppercase tracking-[0.35em] text-sky-400">Chat with AI</p>
               <h2 className="mt-2 text-3xl font-semibold text-white sm:text-4xl">Ask the studio assistant</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                Use suggested prompts or ask directly. The AI will respond with confidence, source data, and feedback controls.
+                Use suggested prompts or ask directly. The AI will query your knowledge base to provide answers.
               </p>
             </div>
             <div className="mt-4 flex flex-wrap gap-3 sm:mt-0">
@@ -131,7 +126,8 @@ const Chat = () => {
                   key={prompt}
                   type="button"
                   onClick={() => sendMessage(prompt)}
-                  className="rounded-full border border-white/10 bg-slate-900/80 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-sky-300/40 hover:bg-slate-900"
+                  disabled={typing}
+                  className="rounded-full border border-white/10 bg-slate-900/80 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-sky-300/40 hover:bg-slate-900 disabled:opacity-50"
                 >
                   {prompt}
                 </button>
@@ -148,7 +144,7 @@ const Chat = () => {
                 <h2 className="text-xl font-semibold text-white">AI conversation</h2>
               </div>
               <div className="rounded-3xl bg-slate-900/85 px-4 py-2 text-sm font-medium text-slate-200">
-                {typing ? 'AI is typing…' : 'Ready to chat'}
+                {typing ? 'AI is generating…' : 'Ready to chat'}
               </div>
             </div>
 
@@ -169,14 +165,18 @@ const Chat = () => {
                           <div className="mt-4 rounded-[24px] border border-white/10 bg-slate-950/85 p-4 text-sm text-slate-300">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="space-y-1">
-                                <p>
-                                  <span className="font-semibold text-slate-200">Confidence:</span>{' '}
-                                  <span className="text-sky-300">{message.confidence}</span>
-                                </p>
-                                <p>
-                                  <span className="font-semibold text-slate-200">Source:</span>{' '}
-                                  <span className="text-slate-300">{message.source}</span>
-                                </p>
+                                {message.metadata?.provider && (
+                                  <p>
+                                    <span className="font-semibold text-slate-200">Model:</span>{' '}
+                                    <span className="text-sky-300">{message.metadata.model} ({message.metadata.provider})</span>
+                                  </p>
+                                )}
+                                {message.source && (
+                                  <p>
+                                    <span className="font-semibold text-slate-200">Source:</span>{' '}
+                                    <span className="text-slate-300">{message.source}</span>
+                                  </p>
+                                )}
                               </div>
                               <div className="flex flex-wrap items-center gap-2">
                                 <button
@@ -233,7 +233,8 @@ const Chat = () => {
                 onKeyDown={onKeyDown}
                 rows={4}
                 placeholder="Type your question here..."
-                className="w-full resize-none rounded-3xl border border-white/10 bg-slate-900/90 px-4 py-4 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/10"
+                className="w-full resize-none rounded-3xl border border-white/10 bg-slate-900/90 px-4 py-4 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/10 disabled:opacity-50"
+                disabled={typing}
               />
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-slate-500">Press Enter to send, Shift+Enter for a new line.</p>

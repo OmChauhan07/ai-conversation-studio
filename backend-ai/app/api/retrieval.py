@@ -1,9 +1,10 @@
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 
 from app.core.exceptions import KnowledgeBaseEmptyError, NoRelevantKnowledgeError
 from app.services.retrieval_service import RetrievalService
+from app.api.dependencies import get_current_user_id
 
 router = APIRouter(
     prefix="/retrieval",
@@ -16,7 +17,10 @@ class RetrievalRequest(BaseModel):
 
 
 @router.post("/search")
-async def search(request: RetrievalRequest):
+async def search(
+    request: RetrievalRequest,
+    user_id: str = Depends(get_current_user_id)
+):
     try:
         retrieval_service = RetrievalService()
         chunks = await retrieval_service.search(request.query)
