@@ -1,5 +1,6 @@
 import { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
 import { AuthContext } from '../context/AuthContext';
 import api from '../api/axiosConfig';
 
@@ -22,8 +23,15 @@ const Login = () => {
       // Save token globally via AuthContext
       login(response.data.token);
       
-      // Route directly to the secure dashboard
-      navigate('/dashboard');
+      // Decode token to check role
+      const decoded = jwtDecode(response.data.token);
+      
+      // Route based on user role
+      if (decoded.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Invalid email or password.');
     } finally {

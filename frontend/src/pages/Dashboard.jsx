@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 
-const menuItems = [
+const menuItems = [ 
   { label: 'Dashboard', icon: '🏠', path: '/dashboard' },
   { label: 'Chat with AI', icon: '💬', path: '/chat' },
   { label: 'Conversation History', icon: '📜', path: '/history' },
-  { label: 'Knowledge Sources', icon: '📄', path: '/knowledge' },
   { label: 'My Feedback', icon: '⭐', path: '/feedback' },
   { label: 'Profile', icon: '👤', path: '/profile' },
   { label: 'Logout', icon: '🚪' },
@@ -139,13 +138,12 @@ const feedbackEntries = [
 ];
 
 const Dashboard = () => {
-  const navigate = useNavigate();
   const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState('Chat with AI');
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const [chatPanelActive, setChatPanelActive] = useState(true);
   const userName = user?.name || user?.email?.split('@')[0] || 'AI Partner';
-  const chatPanelActive = activeSection === 'Chat with AI';
 
   const handleMenuItemClick = (item) => {
     if (item.label === 'Logout') {
@@ -156,7 +154,6 @@ const Dashboard = () => {
       navigate(item.path);
       return;
     }
-    setActiveSection(item.label);
   };
 
   const handleCancelLogout = () => {
@@ -166,7 +163,7 @@ const Dashboard = () => {
   const handleConfirmLogout = () => {
     logout();
     setLogoutModalOpen(false);
-    navigate('/login');
+    window.location.href = '/login';
   };
 
   return (
@@ -195,13 +192,12 @@ const Dashboard = () => {
 
           <nav className="space-y-2">
             {menuItems.map((item) => {
-              const isActive = item.label === activeSection;
               return (
                 <button
                   key={item.label}
                   type="button"
                   onClick={() => handleMenuItemClick(item)}
-                  className={`group flex w-full items-center gap-3 rounded-3xl px-4 py-3 text-left text-sm font-medium transition ${isActive ? 'bg-sky-500/15 text-sky-200 ring-1 ring-sky-400/20 shadow-[0_0_0_1px_rgba(59,130,246,0.35)]' : 'text-slate-300 hover:bg-slate-900/80 hover:text-white'}`}
+                  className={`group flex w-full items-center gap-3 rounded-3xl px-4 py-3 text-left text-sm font-medium transition text-slate-300 hover:bg-slate-900/80 hover:text-white`}
                 >
                   <span className="text-base">{item.icon}</span>
                   <span>{item.label}</span>

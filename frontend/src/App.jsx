@@ -13,6 +13,12 @@ import Feedback from './pages/Feedback';
 import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import AdminDashboard from './pages/AdminDashboard';
+import KnowledgeBase from './pages/admin/KnowledgeBase';
+import PromptTesting from './pages/admin/PromptTesting';
+import Analytics from './pages/admin/Analytics';
+import UserManagement from './pages/admin/UserManagement';
+import Settings from './pages/admin/Settings';
 
 function App() {
   return (
@@ -79,6 +85,23 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Admin Dashboard Routes */}
+            <Route
+              path="/admin/dashboard"
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="knowledge" replace />} />
+              <Route path="knowledge" element={<KnowledgeBase />} />
+              <Route path="prompt-testing" element={<PromptTesting />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="users" element={<UserManagement />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
 
             {/* Fallback routing for unknown paths */}
             <Route path="*" element={<Navigate to="/login" replace />} />
