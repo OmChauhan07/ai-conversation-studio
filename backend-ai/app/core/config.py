@@ -14,6 +14,8 @@ CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "knowledge_base")
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "BAAI/bge-small-en-v1.5")
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
 
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
 # Create directories if they don't exist
 os.makedirs(CHROMA_DB_PATH, exist_ok=True)
 os.makedirs(UPLOAD_DIR, exist_ok=True)

@@ -16,16 +16,154 @@ enum Role {
   USER
 }
 
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+enum DocumentStatus {
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
 model User {
-  id                String    @id @default(uuid())
-  name              String?
-  email             String    @unique
-  password          String
-  role              Role      @default(USER)
-  isVerified        Boolean   @default(false)
-  otp               String?   
-  otpExpiresAt      DateTime? 
-  resetOtp          String?   
-  resetOtpExpiresAt DateTime? 
-  createdAt         DateTime  @default(now())
+  id       String  @id @default(uuid())
+  name     String?
+  email    String  @unique
+  password String
+  role     Role    @default(USER)
+
+  isVerified Boolean @default(false)
+
+  otp          String?
+  otpExpiresAt DateTime?
+
+  resetOtp          String?
+  resetOtpExpiresAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  conversations Conversation[]
+  documents     UploadedDocument[]
+  prompts       Prompt[]
+
+  @@index([email])
+}
+
+model Conversation {
+  id String @id @default(cuid())
+
+  title String?
+
+  userId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  documents UploadedDocument[]
+
+  promptRuns PromptRun[]
+
+  @@index([userId])
+}
+
+model Message {
+  id String @id @default(cuid())
+
+  conversationId String
+
+  role MessageRole
+
+  content String @db.Text
+
+  provider String?
+
+  model String?
+
+  sources Json?
+
+  createdAt DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+model UploadedDocument {
+  id String @id @default(cuid())
+
+  userId String
+
+  conversationId String?
+
+  filename String @unique
+
+  originalName String
+
+  fileSize Int
+
+  pages Int
+
+  chunks Int
+
+  uploadedAt DateTime @default(now())
+
+  status DocumentStatus @default(PROCESSED)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+
+  @@index([userId])
+  @@index([conversationId])
+}
+
+model Prompt {
+  id String @id @default(cuid())
+
+  userId String
+
+  title String
+
+  content String @db.Text
+
+  isFavorite Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  runs PromptRun[]
+
+  @@index([userId])
+}
+
+model PromptRun {
+  id String @id @default(cuid())
+
+  promptId String
+
+  conversationId String?
+
+  provider String
+
+  model String
+
+  executionTime Int?
+
+  createdAt DateTime @default(now())
+
+  prompt Prompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+
+  @@index([promptId])
+  @@index([conversationId])
 }
