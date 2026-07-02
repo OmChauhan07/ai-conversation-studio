@@ -50,7 +50,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         # Replace after Vercel deployment
-        "https://YOUR_FRONTEND.vercel.app",
+        "https://ai-conversation-studio-phi.vercel.app/",
     ],
     allow_credentials=True,
     allow_methods=["*"],
