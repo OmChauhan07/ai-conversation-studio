@@ -80,9 +80,8 @@ const Register = () => {
                 >
           
                   <option value="admin">Admin</option>
-                  <option value="manager">Manager</option>
-                  <option value="analyst">Analyst</option>
-                  <option value="operator">Operator</option>
+                  <option value="user">User</option>
+                  
                 </select>
               </div>
             </div>
