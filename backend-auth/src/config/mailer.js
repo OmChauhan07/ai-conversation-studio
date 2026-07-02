@@ -5,14 +5,17 @@ const hasEmailCredentials = Boolean(process.env.EMAIL_USER && process.env.EMAIL_
 
 const transporter = hasEmailCredentials
   ? nodemailer.createTransport({
-      service: 'gmail',
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      family: 4, // Force IPv4
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
       connectionTimeout: 10000,
       greetingTimeout: 10000,
-      socketTimeout: 1000
+      socketTimeout: 10000,
     })
   : null;
 
