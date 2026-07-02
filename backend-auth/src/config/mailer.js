@@ -10,6 +10,9 @@ const transporter = hasEmailCredentials
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 1000
     })
   : null;
 
@@ -20,10 +23,18 @@ const sendMailSafely = async (mailOptions, fallbackLabel) => {
   }
 
   try {
-    await transporter.sendMail(mailOptions);
+    console.log(`[mailer] Sending ${fallbackLabel} to ${mailOptions.to}`);
+
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log("[mailer] Email sent successfully!");
+    console.log(info);
+
     return true;
   } catch (error) {
-    console.warn(`[mailer] ${fallbackLabel} failed: ${error.message}`);
+    console.error("[mailer] Failed to send email");
+    console.error(error);
+
     return false;
   }
 };
