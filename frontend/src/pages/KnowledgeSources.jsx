@@ -1,45 +1,46 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { uploadDocument, getDocuments, deleteDocument } from '../api/aiApi';
+
+const mockSources = [
+  {
+    id: 'KS-001',
+    name: 'Policy Playbook.pdf',
+    type: 'PDF',
+    date: 'Jun 21, 2026',
+    icon: '📄',
+  },
+  {
+    id: 'KS-002',
+    name: 'AI Testing Guide.docx',
+    type: 'DOCX',
+    date: 'Jun 19, 2026',
+    icon: '📄',
+  },
+  {
+    id: 'KS-003',
+    name: 'Support FAQ.md',
+    type: 'Markdown',
+    date: 'Jun 16, 2026',
+    icon: '📄',
+  },
+  {
+    id: 'KS-004',
+    name: 'Compliance Matrix.xlsx',
+    type: 'Excel',
+    date: 'Jun 14, 2026',
+    icon: '📊',
+  },
+];
 
 const KnowledgeSources = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [dragActive, setDragActive] = useState(false);
-  const [sources, setSources] = useState([]);
+  const [sources, setSources] = useState(mockSources);
   const [previewSource, setPreviewSource] = useState(null);
   const [uploadMessage, setUploadMessage] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const fileInputRef = useRef(null);
-
-  // Fetch documents on component mount
-  useEffect(() => {
-    fetchDocuments();
-  }, []);
-
-  const fetchDocuments = async () => {
-    try {
-      setLoading(true);
-      const response = await getDocuments();
-      if (response.success && response.documents) {
-        const formattedDocs = response.documents.map((doc, index) => ({
-          id: `KS-${index}`,
-          name: doc.filename || doc.name,
-          type: (doc.filename || doc.name).split('.').pop().toUpperCase(),
-          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          icon: '📄',
-        }));
-        setSources(formattedDocs);
-      }
-    } catch (err) {
-      setError('Failed to load documents. Please ensure the AI backend is running.');
-      console.error('Error fetching documents:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredSources = useMemo(
     () =>
@@ -59,22 +60,20 @@ const KnowledgeSources = () => {
     setDragActive(false);
   };
 
-  const handleFileSelection = async (files) => {
+  const handleFileSelection = (files) => {
     if (!files || files.length === 0) return;
     const file = files[0];
+    const newSource = {
+      id: `KS-${Date.now()}`,
+      name: file.name,
+      type: file.name.split('.').pop().toUpperCase(),
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      icon: '📄',
+      content: `Preview content for ${file.name}.`,
+    };
 
-    try {
-      setLoading(true);
-      setError('');
-      await uploadDocument(file);
-      setUploadMessage(`Uploaded ${file.name} successfully.`);
-      await fetchDocuments(); // Refresh the list
-    } catch (err) {
-      setError(err.response?.data?.detail || err.response?.data?.message || 'Failed to upload document.');
-      console.error('Error uploading document:', err);
-    } finally {
-      setLoading(false);
-    }
+    setSources((prev) => [newSource, ...prev]);
+    setUploadMessage(`Uploaded ${file.name} successfully.`);
   };
 
   const handleDrop = (event) => {
@@ -95,23 +94,6 @@ const KnowledgeSources = () => {
     setPreviewSource(null);
   };
 
-  const handleDelete = async (source) => {
-    if (!window.confirm(`Are you sure you want to delete ${source.name}?`)) return;
-
-    try {
-      setLoading(true);
-      setError('');
-      await deleteDocument(source.name);
-      setUploadMessage(`Deleted ${source.name} successfully.`);
-      await fetchDocuments(); // Refresh the list
-    } catch (err) {
-      setError(err.response?.data?.detail || err.response?.data?.message || 'Failed to delete document.');
-      console.error('Error deleting document:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.08),transparent_18%),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.05),transparent_22%),linear-gradient(180deg,#040612_0%,#090f1d_45%,#07101b_100%)] text-slate-100">
       <div className="mx-auto flex min-h-screen max-w-[1200px] flex-col px-4 py-6 sm:px-6 lg:px-8">
@@ -130,7 +112,6 @@ const KnowledgeSources = () => {
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
                 Search, preview, and download documents used by the AI assistant.
               </p>
-              {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
               {uploadMessage && <p className="mt-3 text-sm text-emerald-300">{uploadMessage}</p>}
             </div>
             <div className="flex items-center gap-3">
@@ -208,14 +189,6 @@ const KnowledgeSources = () => {
                   className="inline-flex items-center justify-center rounded-3xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-400"
                 >
                   Download
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(source)}
-                  disabled={loading}
-                  className="inline-flex items-center justify-center rounded-3xl bg-red-500/15 px-5 py-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Delete
                 </button>
               </div>
             </motion.article>

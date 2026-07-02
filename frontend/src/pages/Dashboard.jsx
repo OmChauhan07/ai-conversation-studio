@@ -1,8 +1,7 @@
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
-import { getDocuments } from '../api/aiApi';
 
 const menuItems = [ 
   { label: 'Dashboard', icon: '🏠', path: '/dashboard' },
@@ -13,39 +12,138 @@ const menuItems = [
   { label: 'Logout', icon: '🚪' },
 ];
 
+const summaryCards = [
+  {
+    label: 'Total Conversations',
+    value: '14,820',
+    description: 'Sessions processed this month',
+    icon: '💬',
+  },
+  {
+    label: 'Average AI Response Score',
+    value: '92.4%',
+    description: 'Quality score across recent replies',
+    icon: '📈',
+  },
+  {
+    label: 'Feedback Submitted',
+    value: '312',
+    description: 'Ratings collected from users',
+    icon: '⭐',
+  },
+  {
+    label: 'Knowledge Sources Used',
+    value: '26',
+    description: 'Documents referenced by AI',
+    icon: '📄',
+  },
+];
+
+const recentConversations = [
+  {
+    id: 'AC-00124',
+    question: 'How can I improve response accuracy for policy questions?',
+    score: '93%',
+    status: 'Resolved',
+    date: 'Jun 28, 2026',
+  },
+  {
+    id: 'AC-00123',
+    question: 'What is our preferred process for escalation?',
+    score: '88%',
+    status: 'Review',
+    date: 'Jun 27, 2026',
+  },
+  {
+    id: 'AC-00122',
+    question: 'Summarize the compliance checklist for launch.',
+    score: '95%',
+    status: 'Resolved',
+    date: 'Jun 26, 2026',
+  },
+  {
+    id: 'AC-00121',
+    question: 'List the key risks for AI hallucinations.',
+    score: '89%',
+    status: 'Pending',
+    date: 'Jun 25, 2026',
+  },
+];
+
+const chatMessages = [
+  {
+    id: 1,
+    sender: 'ai',
+    text: 'I recommend focusing on safe prompt templates, source attribution, and guardrails for policy-related questions.',
+    confidence: '93%',
+    source: 'Policy-Overview.pdf',
+  },
+  {
+    id: 2,
+    sender: 'user',
+    text: 'Can you suggest a short governance summary for the team?',
+  },
+  {
+    id: 3,
+    sender: 'ai',
+    text: 'Governance should include clear ownership, review checkpoints, and automated alerts for out-of-scope answers.',
+    confidence: '89%',
+    source: 'Governance-Report.docx',
+  },
+];
+
+const suggestedPrompts = [
+  'Show the latest audit highlights',
+  'Compare response performance',
+  'Summarize high-risk feedback',
+];
+
+const knowledgeSources = [
+  {
+    name: 'Policy Playbook',
+    type: 'PDF',
+    date: 'Jun 21, 2026',
+  },
+  {
+    name: 'AI Testing Guide',
+    type: 'DOCX',
+    date: 'Jun 19, 2026',
+  },
+  {
+    name: 'Support FAQ',
+    type: 'Markdown',
+    date: 'Jun 16, 2026',
+  },
+];
+
+const feedbackEntries = [
+  {
+    conversation: 'How do I configure AI rate limiting?',
+    rating: '5/5',
+    comment: 'Very helpful and actionable.',
+    date: 'Jun 28, 2026',
+  },
+  {
+    conversation: 'Is the new policy summary accurate?',
+    rating: '4/5',
+    comment: 'Good detail, but could be shorter.',
+    date: 'Jun 27, 2026',
+  },
+  {
+    conversation: 'Suggest improvements for the audit workflow.',
+    rating: '5/5',
+    comment: 'Clear and professional guidance.',
+    date: 'Jun 24, 2026',
+  },
+];
+
 const Dashboard = () => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [chatPanelActive, setChatPanelActive] = useState(true);
-  const [knowledgeSources, setKnowledgeSources] = useState([]);
-  const [loadingKnowledge, setLoadingKnowledge] = useState(false);
   const userName = user?.name || user?.email?.split('@')[0] || 'AI Partner';
-
-  // Fetch knowledge sources from AI backend
-  useEffect(() => {
-    fetchKnowledgeSources();
-  }, []);
-
-  const fetchKnowledgeSources = async () => {
-    try {
-      setLoadingKnowledge(true);
-      const response = await getDocuments();
-      if (response.success && response.documents) {
-        const formattedDocs = response.documents.slice(0, 3).map((doc) => ({
-          name: doc.filename || doc.name,
-          type: (doc.filename || doc.name).split('.').pop().toUpperCase(),
-          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        }));
-        setKnowledgeSources(formattedDocs);
-      }
-    } catch (err) {
-      console.error('Error fetching knowledge sources:', err);
-    } finally {
-      setLoadingKnowledge(false);
-    }
-  };
 
   const handleMenuItemClick = (item) => {
     if (item.label === 'Logout') {
@@ -156,9 +254,24 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="rounded-[20px] border border-white/10 bg-slate-900/90 p-8 shadow-[0_35px_90px_-60px_rgba(0,0,0,0.65)] backdrop-blur-xl text-center">
-            <p className="text-sm text-slate-400">Dashboard analytics not yet implemented</p>
-            <p className="mt-2 text-xs text-slate-500">Connect to analytics API when available</p>
+          <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {summaryCards.map((card) => (
+              <motion.article
+                key={card.label}
+                whileHover={{ y: -4, scale: 1.01 }}
+                transition={{ duration: 0.25 }}
+                className="rounded-[20px] border border-white/10 bg-slate-900/90 p-5 shadow-[0_35px_90px_-60px_rgba(0,0,0,0.65)] backdrop-blur-xl"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="rounded-3xl bg-sky-500/15 p-3 text-lg text-sky-300">{card.icon}</div>
+                  <span className="text-xs uppercase tracking-[0.3em] text-slate-500">{card.label}</span>
+                </div>
+                <div className="mt-6">
+                  <p className="text-3xl font-semibold text-white">{card.value}</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-400">{card.description}</p>
+                </div>
+              </motion.article>
+            ))}
           </motion.section>
 
           <div className="mt-6 grid gap-6 xl:grid-cols-[1.75fr_1.25fr]">
@@ -178,9 +291,39 @@ const Dashboard = () => {
                 </button>
               </div>
 
-              <div className="mt-5 rounded-[20px] border border-white/10 bg-slate-900/70 p-8 text-center">
-                <p className="text-sm text-slate-400">Conversation history API not yet implemented</p>
-                <p className="mt-2 text-xs text-slate-500">Use the Chat page to interact with the AI</p>
+              <div className="mt-5 overflow-x-auto">
+                <table className="min-w-full border-separate border-spacing-y-3 text-left text-sm">
+                  <thead>
+                    <tr className="text-slate-500">
+                      <th className="pb-3">Conversation ID</th>
+                      <th className="pb-3">Question</th>
+                      <th className="pb-3">Response Score</th>
+                      <th className="pb-3">Status</th>
+                      <th className="pb-3">Date</th>
+                      <th className="pb-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentConversations.map((row) => (
+                      <tr key={row.id} className="rounded-[20px] bg-slate-900/70 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.4)]">
+                        <td className="px-3 py-4 text-slate-300">{row.id}</td>
+                        <td className="px-3 py-4 text-slate-200 max-w-[320px]">{row.question}</td>
+                        <td className="px-3 py-4 text-slate-200">{row.score}</td>
+                        <td className="px-3 py-4">
+                          <span className={`inline-flex rounded-full px-3 py-1 text-[12px] font-semibold ${row.status === 'Resolved' ? 'bg-emerald-500/10 text-emerald-200' : row.status === 'Review' ? 'bg-sky-500/10 text-sky-200' : 'bg-amber-500/10 text-amber-200'}`}>
+                            {row.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-4 text-slate-400">{row.date}</td>
+                        <td className="px-3 py-4">
+                          <button className="rounded-2xl bg-sky-500/15 px-3 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/20">
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </motion.section>
 
@@ -189,6 +332,52 @@ const Dashboard = () => {
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.45, delay: 0.1 }}
+                className={`rounded-[24px] border border-white/10 p-5 backdrop-blur-xl transition ${chatPanelActive ? 'bg-slate-900/90 shadow-[0_40px_120px_-80px_rgba(0,0,0,0.65)] ring-1 ring-emerald-500/20' : 'bg-slate-950/95 shadow-[0_40px_120px_-80px_rgba(0,0,0,0.55)]'}`}
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"></div>
+                  <div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <p className="text-sm uppercase tracking-[0.3em] text-sky-400">Chat section</p>
+                    {chatPanelActive && <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.3em] text-emerald-300">Active</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-slate-900/80 text-slate-200 transition hover:bg-slate-900/90">🎙</button>
+                    <button className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-slate-900/80 text-slate-200 transition hover:bg-slate-900/90">📎</button>
+                  </div>
+                </div>
+
+                <div className="space-y-4 overflow-hidden rounded-[28px] border border-white/10 bg-slate-900/80 p-4 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]">
+                  {chatMessages.map((message) => (
+                    <div key={message.id} className={message.sender === 'ai' ? 'rounded-[28px] border border-white/10 bg-slate-900/80 p-4 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.5)]' : 'self-end rounded-[28px] bg-slate-800/90 p-4 text-slate-100'}>
+                      {message.sender === 'ai' ? (
+                        <>
+                          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+                            <span>Confidence {message.confidence}</span>
+                            <span>Source: {message.source}</span>
+                          </div>
+                          <p className="mt-3 text-sm leading-7 text-slate-200">{message.text}</p>
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button className="rounded-2xl bg-white/5 px-3 py-2 text-slate-300 transition hover:bg-white/10">Copy</button>
+                              <button className="rounded-2xl bg-white/5 px-3 py-2 text-slate-300 transition hover:bg-white/10">👍</button>
+                              <button className="rounded-2xl bg-white/5 px-3 py-2 text-slate-300 transition hover:bg-white/10">👎</button>
+                            </div>
+                            <span className="text-[11px] uppercase tracking-[0.25em] text-sky-400">AI response</span>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-sm leading-7 text-slate-100">{message.text}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+              </motion.section>
+
+              <motion.section
+                initial={{ opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, delay: 0.15 }}
                 className="rounded-[24px] border border-white/10 bg-slate-950/95 p-5 shadow-[0_40px_120px_-80px_rgba(0,0,0,0.55)] backdrop-blur-xl"
               >
                 <div className="flex items-center justify-between gap-4">
@@ -201,8 +390,27 @@ const Dashboard = () => {
                   </button>
                 </div>
 
-                <div className="mt-5 rounded-[20px] border border-white/10 bg-slate-900/70 p-8 text-center">
-                  <p className="text-sm text-slate-400">Feedback API not yet implemented</p>
+                <div className="mt-5 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm text-slate-300">
+                    <thead>
+                      <tr className="border-b border-white/10 text-slate-500">
+                        <th className="pb-3 pr-6">Conversation</th>
+                        <th className="pb-3 pr-6">Rating</th>
+                        <th className="pb-3 pr-6">Comment</th>
+                        <th className="pb-3">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {feedbackEntries.map((entry) => (
+                        <tr key={entry.date} className="hover:bg-slate-900/70 transition">
+                          <td className="py-4 pr-6 text-slate-200">{entry.conversation}</td>
+                          <td className="py-4 pr-6 text-slate-200">{entry.rating}</td>
+                          <td className="py-4 pr-6 text-slate-400 max-w-[220px]">{entry.comment}</td>
+                          <td className="py-4 text-slate-400">{entry.date}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </motion.section>
             </div>
@@ -220,50 +428,31 @@ const Dashboard = () => {
                   <p className="text-sm uppercase tracking-[0.3em] text-sky-400">Knowledge Sources</p>
                   <h2 className="mt-2 text-2xl font-semibold text-white">Referenced documents</h2>
                 </div>
-                <button 
-                  onClick={() => navigate('/knowledge')}
-                  className="rounded-3xl bg-slate-900/80 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-900"
-                >
-                  View all
+                <button className="rounded-3xl bg-slate-900/80 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-900">
+                  Add source
                 </button>
               </div>
 
-              {loadingKnowledge ? (
-                <div className="mt-5 rounded-[20px] border border-white/10 bg-slate-900/70 p-8 text-center">
-                  <p className="text-sm text-slate-400">Loading documents...</p>
-                </div>
-              ) : knowledgeSources.length > 0 ? (
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  {knowledgeSources.map((source) => (
-                    <motion.article
-                      key={source.name}
-                      whileHover={{ y: -3 }}
-                      className="rounded-[20px] border border-white/10 bg-slate-900/80 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-lg font-semibold text-white">{source.name}</p>
-                          <p className="mt-2 text-sm text-slate-400">{source.type} • Uploaded {source.date}</p>
-                        </div>
-                        <div className="rounded-2xl bg-sky-500/15 px-3 py-2 text-sm font-semibold text-sky-200">{source.type}</div>
-                      </div>
-                      <button className="mt-5 inline-flex rounded-3xl bg-slate-950/90 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-900">
-                        Preview
-                      </button>
-                    </motion.article>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-5 rounded-[20px] border border-white/10 bg-slate-900/70 p-8 text-center">
-                  <p className="text-sm text-slate-400">No documents uploaded yet</p>
-                  <button 
-                    onClick={() => navigate('/knowledge')}
-                    className="mt-3 inline-flex rounded-3xl bg-sky-500/15 px-4 py-2 text-sm font-semibold text-sky-200 transition hover:bg-sky-500/25"
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                {knowledgeSources.map((source) => (
+                  <motion.article
+                    key={source.name}
+                    whileHover={{ y: -3 }}
+                    className="rounded-[20px] border border-white/10 bg-slate-900/80 p-4"
                   >
-                    Upload documents
-                  </button>
-                </div>
-              )}
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold text-white">{source.name}</p>
+                        <p className="mt-2 text-sm text-slate-400">{source.type} • Uploaded {source.date}</p>
+                      </div>
+                      <div className="rounded-2xl bg-sky-500/15 px-3 py-2 text-sm font-semibold text-sky-200">{source.type}</div>
+                    </div>
+                    <button className="mt-5 inline-flex rounded-3xl bg-slate-950/90 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-900">
+                      Preview
+                    </button>
+                  </motion.article>
+                ))}
+              </div>
             </motion.section>
 
             <motion.section
@@ -277,11 +466,8 @@ const Dashboard = () => {
                   <p className="text-sm uppercase tracking-[0.3em] text-sky-400">Profile</p>
                   <h2 className="mt-2 text-2xl font-semibold text-white">Account details</h2>
                 </div>
-                <button 
-                  onClick={() => navigate('/profile')}
-                  className="rounded-3xl bg-slate-900/80 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-900"
-                >
-                  View profile
+                <button className="rounded-3xl bg-slate-900/80 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-900">
+                  Change password
                 </button>
               </div>
               <div className="mt-6 space-y-4 rounded-[26px] border border-white/10 bg-slate-900/70 p-5">
@@ -294,12 +480,12 @@ const Dashboard = () => {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-3xl bg-slate-950/70 p-4">
-                    <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Role</p>
-                    <p className="mt-2 text-sm text-slate-100">{user?.role || 'User'}</p>
+                    <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Company</p>
+                    <p className="mt-2 text-sm text-slate-100">AI Conversation Studio</p>
                   </div>
                   <div className="rounded-3xl bg-slate-950/70 p-4">
-                    <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Status</p>
-                    <p className="mt-2 text-sm text-slate-100">Active</p>
+                    <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Role</p>
+                    <p className="mt-2 text-sm text-slate-100">Product Operations</p>
                   </div>
                 </div>
               </div>

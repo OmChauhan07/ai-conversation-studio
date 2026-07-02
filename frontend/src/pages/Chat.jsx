@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { chat } from '../api/aiApi';
 
 const suggestedPrompts = [
   'Summarize latest product feedback',
@@ -14,8 +13,26 @@ const initialMessages = [
     id: 1,
     sender: 'ai',
     text: 'Welcome back! Ask me anything about your AI conversations, coverage, or policy guidance.',
-    confidence: '—',
-    source: 'Welcome message',
+    confidence: '94%',
+    source: 'Welcome-Guide.pdf',
+  },
+];
+
+const sampleAiResponses = [
+  {
+    text: 'I recommend focusing on prompt clarity, source attribution, and guardrail checks for sensitive queries.',
+    confidence: '91%',
+    source: 'Policy-Playbook.pdf',
+  },
+  {
+    text: 'Your best option is to use short contextual prompts and verify answers against internal documentation.',
+    confidence: '88%',
+    source: 'AI-Testing-Guide.docx',
+  },
+  {
+    text: 'When evaluating accuracy, always prioritize user intent and filter out speculative statements.',
+    confidence: '93%',
+    source: 'Support-FAQ.md',
   },
 ];
 
@@ -35,7 +52,22 @@ const Chat = () => {
     scrollToLatest();
   }, [chatHistory, typing]);
 
-  const sendMessage = async (messageText) => {
+  const addAiResponse = () => {
+    const response = sampleAiResponses[Math.floor(Math.random() * sampleAiResponses.length)];
+    setChatHistory((history) => [
+      ...history,
+      {
+        id: Date.now(),
+        sender: 'ai',
+        text: response.text,
+        confidence: response.confidence,
+        source: response.source,
+      },
+    ]);
+    setTyping(false);
+  };
+
+  const sendMessage = (messageText) => {
     const trimmed = messageText.trim();
     if (!trimmed || typing) return;
 
@@ -50,47 +82,7 @@ const Chat = () => {
     setDraft('');
     setTyping(true);
 
-    try {
-      const result = await chat(trimmed);
-
-      // Format sources from the API response
-      const sourcesText =
-        result.sources && result.sources.length > 0
-          ? result.sources.map((s) => (typeof s === 'string' ? s : s.source || s.filename || JSON.stringify(s))).join(', ')
-          : 'No sources';
-
-      setChatHistory((history) => [
-        ...history,
-        {
-          id: Date.now(),
-          sender: 'ai',
-          text: result.answer || result.message || 'No response received.',
-          confidence: result.provider || '—',
-          source: sourcesText,
-        },
-      ]);
-    } catch (err) {
-      const errorMessage =
-        err.response?.data?.message ||
-        err.response?.data?.detail ||
-        (err.code === 'ERR_NETWORK'
-          ? 'Cannot reach the AI server. Please ensure the AI backend is running on port 8000.'
-          : 'Something went wrong. Please try again.');
-
-      setChatHistory((history) => [
-        ...history,
-        {
-          id: Date.now(),
-          sender: 'ai',
-          text: `⚠️ ${errorMessage}`,
-          confidence: '—',
-          source: 'Error',
-          isError: true,
-        },
-      ]);
-    } finally {
-      setTyping(false);
-    }
+    window.setTimeout(addAiResponse, 1200);
   };
 
   const onSend = () => sendMessage(draft);
@@ -171,14 +163,14 @@ const Chat = () => {
                     className={message.sender === 'user' ? 'flex justify-end' : 'flex justify-start'}
                   >
                     <div className={message.sender === 'user' ? 'w-full max-w-[72%]' : 'w-full max-w-[72%]'}>
-                      <div className={message.sender === 'user' ? 'rounded-[28px] border border-slate-700 bg-slate-900/95 p-5 text-right shadow-[0_20px_60px_-40px_rgba(0,0,0,0.6)]' : `rounded-[28px] border ${message.isError ? 'border-rose-500/30' : 'border-white/10'} bg-slate-900/90 p-5 text-left shadow-[0_20px_60px_-40px_rgba(0,0,0,0.6)]`}>
+                      <div className={message.sender === 'user' ? 'rounded-[28px] border border-slate-700 bg-slate-900/95 p-5 text-right shadow-[0_20px_60px_-40px_rgba(0,0,0,0.6)]' : 'rounded-[28px] border border-white/10 bg-slate-900/90 p-5 text-left shadow-[0_20px_60px_-40px_rgba(0,0,0,0.6)]'}>
                         <p className="text-sm leading-7 text-slate-100">{message.text}</p>
                         {message.sender === 'ai' && (
                           <div className="mt-4 rounded-[24px] border border-white/10 bg-slate-950/85 p-4 text-sm text-slate-300">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="space-y-1">
                                 <p>
-                                  <span className="font-semibold text-slate-200">Provider:</span>{' '}
+                                  <span className="font-semibold text-slate-200">Confidence:</span>{' '}
                                   <span className="text-sky-300">{message.confidence}</span>
                                 </p>
                                 <p>

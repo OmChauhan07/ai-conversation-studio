@@ -1,41 +1,55 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { uploadDocument, getDocuments, deleteDocument } from '../../api/aiApi';
 
 const KnowledgeBase = () => {
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  // Fetch documents on component mount
-  useEffect(() => {
-    fetchDocuments();
-  }, []);
-
-  const fetchDocuments = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const response = await getDocuments();
-      if (response.success && response.documents) {
-        const formattedDocs = response.documents.map((doc, index) => ({
-          id: index + 1,
-          name: doc.filename || doc.name,
-          type: (doc.filename || doc.name).split('.').pop().toUpperCase(),
-          uploadDate: new Date().toISOString().split('T')[0],
-          uploadedBy: 'Admin User',
-          status: 'Active',
-          size: 'Unknown',
-        }));
-        setDocuments(formattedDocs);
-      }
-    } catch (err) {
-      setError('Failed to load documents. Please ensure the AI backend is running.');
-      console.error('Error fetching documents:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Mock data for documents
+  const [documents, setDocuments] = useState([
+    {
+      id: 1,
+      name: 'Company Policy Guidelines',
+      type: 'PDF',
+      uploadDate: '2026-06-28',
+      uploadedBy: 'Admin User',
+      status: 'Active',
+      size: '2.4 MB',
+    },
+    {
+      id: 2,
+      name: 'AI Testing Framework',
+      type: 'DOCX',
+      uploadDate: '2026-06-25',
+      uploadedBy: 'Admin User',
+      status: 'Active',
+      size: '1.8 MB',
+    },
+    {
+      id: 3,
+      name: 'Support FAQ Documentation',
+      type: 'Markdown',
+      uploadDate: '2026-06-20',
+      uploadedBy: 'Admin User',
+      status: 'Active',
+      size: '650 KB',
+    },
+    {
+      id: 4,
+      name: 'Compliance Checklist 2026',
+      type: 'XLSX',
+      uploadDate: '2026-06-18',
+      uploadedBy: 'Compliance Officer',
+      status: 'Active',
+      size: '1.2 MB',
+    },
+    {
+      id: 5,
+      name: 'AI Model Specifications',
+      type: 'PDF',
+      uploadDate: '2026-06-15',
+      uploadedBy: 'Tech Lead',
+      status: 'Archived',
+      size: '3.5 MB',
+    },
+  ]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All');
@@ -65,25 +79,24 @@ const KnowledgeBase = () => {
   };
 
   // Handle drop
-  const handleDrop = async (e) => {
+  const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      try {
-        setLoading(true);
-        setError('');
-        await uploadDocument(file);
-        showSuccessToast(`${file.name} uploaded successfully!`);
-        await fetchDocuments(); // Refresh the list
-      } catch (err) {
-        setError(err.response?.data?.detail || err.response?.data?.message || 'Failed to upload document.');
-        console.error('Error uploading document:', err);
-      } finally {
-        setLoading(false);
-      }
+      const newDoc = {
+        id: documents.length + 1,
+        name: file.name.replace(/\.[^/.]+$/, ''),
+        type: file.name.split('.').pop().toUpperCase(),
+        uploadDate: new Date().toISOString().split('T')[0],
+        uploadedBy: 'Current User',
+        status: 'Active',
+        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+      };
+      setDocuments([newDoc, ...documents]);
+      showSuccessToast(`${file.name} uploaded successfully!`);
     }
   };
 
@@ -95,24 +108,10 @@ const KnowledgeBase = () => {
   };
 
   // Delete document
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     const doc = documents.find((d) => d.id === id);
-    if (!doc) return;
-
-    if (!window.confirm(`Are you sure you want to delete ${doc.name}?`)) return;
-
-    try {
-      setLoading(true);
-      setError('');
-      await deleteDocument(doc.name);
-      showSuccessToast(`${doc.name} deleted successfully!`);
-      await fetchDocuments(); // Refresh the list
-    } catch (err) {
-      setError(err.response?.data?.detail || err.response?.data?.message || 'Failed to delete document.');
-      console.error('Error deleting document:', err);
-    } finally {
-      setLoading(false);
-    }
+    setDocuments(documents.filter((d) => d.id !== id));
+    showSuccessToast(`${doc.name} deleted successfully!`);
   };
 
   // Preview document (mock)
@@ -129,21 +128,20 @@ const KnowledgeBase = () => {
   const handleUploadClick = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.onchange = async (e) => {
+    input.onchange = (e) => {
       const file = e.target.files[0];
       if (file) {
-        try {
-          setLoading(true);
-          setError('');
-          await uploadDocument(file);
-          showSuccessToast(`${file.name} uploaded successfully!`);
-          await fetchDocuments(); // Refresh the list
-        } catch (err) {
-          setError(err.response?.data?.detail || err.response?.data?.message || 'Failed to upload document.');
-          console.error('Error uploading document:', err);
-        } finally {
-          setLoading(false);
-        }
+        const newDoc = {
+          id: documents.length + 1,
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          type: file.name.split('.').pop().toUpperCase(),
+          uploadDate: new Date().toISOString().split('T')[0],
+          uploadedBy: 'Current User',
+          status: 'Active',
+          size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+        };
+        setDocuments([newDoc, ...documents]);
+        showSuccessToast(`${file.name} uploaded successfully!`);
       }
     };
     input.click();
@@ -156,7 +154,6 @@ const KnowledgeBase = () => {
         <div>
           <h2 className="text-3xl font-semibold text-white">Knowledge Base</h2>
           <p className="mt-1 text-sm text-slate-400">Manage and organize your documents</p>
-          {error && <p className="mt-2 text-sm text-red-300">{error}</p>}
         </div>
         <button
           onClick={handleUploadClick}

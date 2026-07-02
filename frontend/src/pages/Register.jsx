@@ -4,7 +4,7 @@ import api from '../api/axiosConfig';
 
 const Register = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '', company: '', role: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -59,6 +59,32 @@ const Register = () => {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-300">Company</label>
+                <input
+                  type="text"
+                  className="h-[46px] w-full rounded-[12px] bg-slate-950/85 px-4 text-base text-slate-100 outline-none ring-1 ring-slate-800 transition duration-300 focus:ring-2 focus:ring-sky-500/30"
+                  value={formData.company}
+                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-300">Role</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  className="h-[46px] w-full rounded-[12px] bg-slate-950/85 px-4 text-base text-slate-50 outline-none ring-1 ring-slate-800 transition duration-300 focus:ring-2 focus:ring-sky-500/30"
+                >
+          
+                  <option value="admin">Admin</option>
+                  <option value="manager">Manager</option>
+                  <option value="analyst">Analyst</option>
+                  <option value="operator">Operator</option>
+                </select>
+              </div>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
