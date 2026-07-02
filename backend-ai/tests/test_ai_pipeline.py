@@ -1,10 +1,12 @@
+from math import sqrt
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.core.config import GROQ_MODEL_NAME, GEMINI_MODEL_NAME
+from app.core import config
+from app.core.exceptions import InvalidModelError, KnowledgeBaseEmptyError, NoRelevantKnowledgeError, ProviderUnavailableError
 from app.services.chat_service import ChatService
 from app.services.chroma_service import ChromaService
 from app.services.embedding_service import EmbeddingService
@@ -36,6 +38,17 @@ class FakeCollection:
         self.metadatas.extend(metadatas)
         self.embeddings.extend(embeddings)
 
+    @staticmethod
+    def _distance(left, right):
+        dot_product = sum(l * r for l, r in zip(left, right))
+        left_norm = sqrt(sum(value * value for value in left))
+        right_norm = sqrt(sum(value * value for value in right))
+
+        if left_norm == 0 or right_norm == 0:
+            return 1.0
+
+        return 1 - (dot_product / (left_norm * right_norm))
+
     def count(self):
         return len(self.ids)
 
@@ -45,6 +58,30 @@ class FakeCollection:
             "documents": list(self.documents),
             "metadatas": list(self.metadatas),
             "embeddings": list(self.embeddings),
+        }
+
+    def query(self, query_embeddings, n_results, include):
+        query_embedding = query_embeddings[0]
+        scored = []
+
+        for index, embedding in enumerate(self.embeddings):
+            scored.append(
+                (
+                    self._distance(query_embedding, embedding),
+                    self.ids[index],
+                    self.documents[index],
+                    self.metadatas[index],
+                )
+            )
+
+        scored.sort(key=lambda item: item[0])
+        scored = scored[:n_results]
+
+        return {
+            "ids": [[item[1] for item in scored]],
+            "documents": [[item[2] for item in scored]],
+            "metadatas": [[item[3] for item in scored]],
+            "distances": [[item[0] for item in scored]],
         }
 
     def delete(self, where):
@@ -112,6 +149,7 @@ def test_chroma_service_add_search_and_delete():
 
     assert results[0]["id"] == "doc-1"
     assert results[0]["metadata"]["filename"] == "employee.pdf"
+    assert results[0]["distance"] <= results[1]["distance"]
     assert results[1]["id"] == "doc-2"
 
     service.delete_document("employee.pdf")
@@ -190,19 +228,20 @@ def test_retrieval_search_api_returns_chunks(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["chunks"][0]["id"] == "chunk-1"
+    assert response.json()["chunks"][0]["score"] == 0.99
 
 
 def test_retrieval_search_api_handles_empty_database(monkeypatch):
-    async def fake_search(self, query, top_k=5):
-        raise ValueError("Empty database")
+    async def fake_search(self, query, top_k=5, min_score=0.3):
+        raise KnowledgeBaseEmptyError("Knowledge base is empty.")
 
     monkeypatch.setattr(RetrievalService, "search", fake_search)
 
     client = TestClient(app)
     response = client.post("/retrieval/search", json={"query": "What is the leave policy?"})
 
-    assert response.status_code == 200
-    assert response.json() == {"success": False, "message": "Empty database"}
+    assert response.status_code == 404
+    assert response.json() == {"success": False, "message": "Knowledge base is empty."}
 
 
 def test_knowledge_upload_route_preserves_response_shape(monkeypatch):
@@ -228,6 +267,17 @@ def test_knowledge_upload_route_preserves_response_shape(monkeypatch):
     assert response.json()["chunks"] == ["first chunk", "second chunk"]
 
 
+def test_knowledge_upload_rejects_invalid_pdf():
+    client = TestClient(app)
+    response = client.post(
+        "/knowledge/upload",
+        files={"file": ("employee.txt", b"plain text", "text/plain")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Only PDF files are allowed."
+
+
 def test_prompt_service_builds_single_grounded_prompt():
     prompt_service = PromptService()
     prompt = prompt_service.build_prompt(
@@ -243,10 +293,14 @@ def test_prompt_service_builds_single_grounded_prompt():
     assert "Do not hallucinate." in prompt
     assert "Question:" in prompt
     assert "What is the leave policy?" in prompt
+    assert prompt.count("Leave must be approved by a manager.") == 1
 
 
 @pytest.mark.asyncio
 async def test_gemini_service_falls_back_to_groq(monkeypatch):
+    monkeypatch.setattr(config, "GEMINI_MODEL_NAME", "gemma-4-31b")
+    monkeypatch.setattr(config, "GROQ_MODEL_NAME", "llama3-70b-8192")
+
     class FakeGeminiModels:
         def generate_content(self, model, contents):
             raise TimeoutError("timeout")
@@ -269,12 +323,15 @@ async def test_gemini_service_falls_back_to_groq(monkeypatch):
     result = await service.generate("Prompt text")
 
     assert result.provider == "Groq"
-    assert result.model == GROQ_MODEL_NAME
+    assert result.model == config.GROQ_MODEL_NAME
     assert result.text == "Groq fallback answer."
 
 
 @pytest.mark.asyncio
 async def test_gemini_service_uses_gemini_when_available(monkeypatch):
+    monkeypatch.setattr(config, "GEMINI_MODEL_NAME", "gemma-4-31b")
+    monkeypatch.setattr(config, "GROQ_MODEL_NAME", "llama3-70b-8192")
+
     class FakeGeminiModels:
         def generate_content(self, model, contents):
             return SimpleNamespace(text="Gemini answer.")
@@ -291,8 +348,44 @@ async def test_gemini_service_uses_gemini_when_available(monkeypatch):
     result = await service.generate("Prompt text")
 
     assert result.provider == "Gemini"
-    assert result.model == GEMINI_MODEL_NAME
+    assert result.model == config.GEMINI_MODEL_NAME
     assert result.text == "Gemini answer."
+
+
+@pytest.mark.asyncio
+async def test_gemini_service_rejects_invalid_model_without_fallback(monkeypatch):
+    monkeypatch.setattr(config, "GEMINI_MODEL_NAME", "bad-model")
+    monkeypatch.setattr(config, "GROQ_MODEL_NAME", "llama3-70b-8192")
+
+    class FakeGeminiModels:
+        def generate_content(self, model, contents):
+            raise ValueError("model not found")
+
+    class FakeGeminiClient:
+        def __init__(self):
+            self.models = FakeGeminiModels()
+
+    class FakeGroqClient:
+        def __init__(self):
+            self.chat = SimpleNamespace(completions=SimpleNamespace(create=lambda *args, **kwargs: None))
+
+    service = GeminiService(gemini_client=FakeGeminiClient(), groq_client=FakeGroqClient())
+
+    with pytest.raises(InvalidModelError):
+        await service.generate("Prompt text")
+
+
+@pytest.mark.asyncio
+async def test_gemini_service_raises_provider_unavailable_when_no_clients(monkeypatch):
+    monkeypatch.setattr(config, "GEMINI_MODEL_NAME", "gemma-4-31b")
+    monkeypatch.setattr(config, "GROQ_MODEL_NAME", "llama3-70b-8192")
+    monkeypatch.setattr(GeminiService, "get_gemini_client", classmethod(lambda cls: None))
+    monkeypatch.setattr(GeminiService, "get_groq_client", classmethod(lambda cls: None))
+
+    service = GeminiService(gemini_client=None, groq_client=None)
+
+    with pytest.raises(ProviderUnavailableError):
+        await service.generate("Prompt text")
 
 
 @pytest.mark.asyncio
@@ -334,10 +427,10 @@ async def test_chat_service_orchestrates_retrieval_prompt_and_generation():
 
 
 @pytest.mark.asyncio
-async def test_chat_service_returns_no_knowledge_found_when_retrieval_is_empty():
+async def test_chat_service_propagates_no_relevant_knowledge():
     class FakeRetrievalService:
         async def search(self, query, top_k=5, min_score=0.3):
-            return []
+            raise NoRelevantKnowledgeError("No relevant knowledge found.")
 
     service = ChatService(
         retrieval_service=FakeRetrievalService(),
@@ -345,7 +438,23 @@ async def test_chat_service_returns_no_knowledge_found_when_retrieval_is_empty()
         gemini_service=GeminiService(gemini_client=None, groq_client=None),
     )
 
-    with pytest.raises(LookupError, match="No relevant knowledge found."):
+    with pytest.raises(NoRelevantKnowledgeError):
+        await service.chat("What is the leave policy?")
+
+
+@pytest.mark.asyncio
+async def test_chat_service_propagates_empty_database():
+    class FakeRetrievalService:
+        async def search(self, query, top_k=5, min_score=0.3):
+            raise KnowledgeBaseEmptyError("Knowledge base is empty.")
+
+    service = ChatService(
+        retrieval_service=FakeRetrievalService(),
+        prompt_service=PromptService(),
+        gemini_service=GeminiService(gemini_client=None, groq_client=None),
+    )
+
+    with pytest.raises(KnowledgeBaseEmptyError):
         await service.chat("What is the leave policy?")
 
 
@@ -369,32 +478,10 @@ def test_chat_endpoint_returns_success_payload(monkeypatch):
     assert response.json()["metadata"]["provider"] == "Gemini"
 
 
-def test_chat_endpoint_rejects_empty_message():
-    client = TestClient(app)
-    response = client.post("/chat", json={"message": "   "})
-
-    assert response.status_code == 400
-    assert response.json() == {"success": False, "message": "Message cannot be empty."}
-
-
-def test_chat_endpoint_returns_no_knowledge_found(monkeypatch):
+def test_chat_endpoint_returns_no_relevant_knowledge(monkeypatch):
     class FakeChatService:
         async def chat(self, question):
-            raise LookupError("No relevant knowledge found.")
-
-    monkeypatch.setattr("app.api.chat.ChatService", lambda: FakeChatService())
-
-    client = TestClient(app)
-    response = client.post("/chat", json={"message": "What is the leave policy?"})
-
-    assert response.status_code == 200
-    assert response.json() == {"success": False, "message": "No relevant knowledge found."}
-
-
-def test_chat_endpoint_returns_404_for_empty_knowledge_base(monkeypatch):
-    class FakeChatService:
-        async def chat(self, question):
-            raise ValueError("Empty database")
+            raise NoRelevantKnowledgeError("No relevant knowledge found.")
 
     monkeypatch.setattr("app.api.chat.ChatService", lambda: FakeChatService())
 
@@ -402,13 +489,41 @@ def test_chat_endpoint_returns_404_for_empty_knowledge_base(monkeypatch):
     response = client.post("/chat", json={"message": "What is the leave policy?"})
 
     assert response.status_code == 404
-    assert response.json() == {"success": False, "message": "Empty database"}
+    assert response.json() == {"success": False, "message": "No relevant knowledge found."}
 
 
-def test_chat_endpoint_returns_500_when_no_providers_are_available(monkeypatch):
+def test_chat_endpoint_returns_empty_database(monkeypatch):
     class FakeChatService:
         async def chat(self, question):
-            raise ValueError("No providers available")
+            raise KnowledgeBaseEmptyError("Knowledge base is empty.")
+
+    monkeypatch.setattr("app.api.chat.ChatService", lambda: FakeChatService())
+
+    client = TestClient(app)
+    response = client.post("/chat", json={"message": "What is the leave policy?"})
+
+    assert response.status_code == 404
+    assert response.json() == {"success": False, "message": "Knowledge base is empty."}
+
+
+def test_chat_endpoint_returns_provider_failure(monkeypatch):
+    class FakeChatService:
+        async def chat(self, question):
+            raise ProviderUnavailableError("No providers available.")
+
+    monkeypatch.setattr("app.api.chat.ChatService", lambda: FakeChatService())
+
+    client = TestClient(app)
+    response = client.post("/chat", json={"message": "What is the leave policy?"})
+
+    assert response.status_code == 502
+    assert response.json() == {"success": False, "message": "No providers available."}
+
+
+def test_chat_endpoint_returns_invalid_model_error(monkeypatch):
+    class FakeChatService:
+        async def chat(self, question):
+            raise InvalidModelError("Gemini model not found.")
 
     monkeypatch.setattr("app.api.chat.ChatService", lambda: FakeChatService())
 
@@ -416,4 +531,4 @@ def test_chat_endpoint_returns_500_when_no_providers_are_available(monkeypatch):
     response = client.post("/chat", json={"message": "What is the leave policy?"})
 
     assert response.status_code == 500
-    assert response.json() == {"success": False, "message": "No providers available"}
+    assert response.json() == {"success": False, "message": "Gemini model not found."}

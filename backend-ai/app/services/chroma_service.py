@@ -1,37 +1,33 @@
 from __future__ import annotations
 
-import math
+import logging
 from typing import Any
 
+from app.core.exceptions import KnowledgeBaseEmptyError
 from app.vector_store.chroma_client import get_collection
 
 
+logger = logging.getLogger(__name__)
+
+
 class ChromaService:
+    """
+    Handles all interactions with ChromaDB.
+
+    Responsibilities:
+    - Add document embeddings
+    - Semantic search
+    - Delete documents
+    """
+
     def __init__(self, collection=None):
-        try:
-            self.collection = collection or get_collection()
-        except Exception:
-            self.collection = None
+        self.collection = collection or get_collection()
 
     def _require_collection(self):
         if self.collection is None:
             raise ValueError("Invalid collection")
 
         return self.collection
-
-    @staticmethod
-    def _cosine_similarity(left: list[float], right: list[float]) -> float:
-        if not left or not right or len(left) != len(right):
-            return -1.0
-
-        dot_product = sum(l * r for l, r in zip(left, right))
-        left_norm = math.sqrt(sum(value * value for value in left))
-        right_norm = math.sqrt(sum(value * value for value in right))
-
-        if left_norm == 0 or right_norm == 0:
-            return -1.0
-
-        return dot_product / (left_norm * right_norm)
 
     def add_documents(
         self,
@@ -40,71 +36,83 @@ class ChromaService:
         metadatas: list[dict[str, Any]],
         embeddings: list[list[float]],
     ) -> dict[str, Any]:
+
         collection = self._require_collection()
 
-        if not documents:
+        if len(documents) == 0:
             return {"added": 0}
 
-        if not embeddings or len(embeddings) != len(documents):
+        if len(embeddings) != len(documents):
             raise ValueError("Missing embeddings")
 
-        try:
-            collection.add(
-                ids=ids,
-                documents=documents,
-                metadatas=metadatas,
-                embeddings=embeddings,
-            )
-        except Exception as error:
-            raise ValueError("Invalid collection") from error
+        collection.add(
+            ids=ids,
+            documents=documents,
+            metadatas=metadatas,
+            embeddings=embeddings,
+        )
 
         return {"added": len(documents)}
 
-    def search(self, query_embedding: list[float], top_k: int = 5) -> list[dict[str, Any]]:
+    def search(
+        self,
+        query_embedding: list[float],
+        top_k: int = 5,
+    ) -> list[dict[str, Any]]:
+
+        """Search ChromaDB and return chunks with similarity scores."""
+
         collection = self._require_collection()
 
-        try:
-            total_vectors = collection.count()
-        except Exception as error:
-            raise ValueError("Invalid collection") from error
-        if total_vectors == 0:
-            raise ValueError("Empty database")
+        if collection.count() == 0:
+            logger.warning("ChromaDB search attempted on an empty collection")
+            raise KnowledgeBaseEmptyError("Knowledge base is empty.")
 
-        try:
-            records = collection.get(include=["documents", "embeddings", "metadatas"])
-        except Exception as error:
-            raise ValueError("Invalid collection") from error
-        ids = records.get("ids") or []
-        documents = records.get("documents") or []
-        metadatas = records.get("metadatas") or []
-        embeddings = records.get("embeddings") or []
+        result = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=top_k,
+            include=[
+                "documents",
+                "metadatas",
+                "distances",
+            ],
+        )
 
-        if not embeddings:
-            raise ValueError("Missing embeddings")
+        documents = (result.get("documents") or [[]])[0]
+        metadatas = (result.get("metadatas") or [[]])[0]
+        distances = (result.get("distances") or [[]])[0]
+        ids = (result.get("ids") or [[]])[0]
 
-        results = []
+        chunks = []
 
-        for index, document_embedding in enumerate(embeddings):
-            if document_embedding is None:
-                raise ValueError("Missing embeddings")
+        for i in range(len(documents)):
+            distance = distances[i]
 
-            score = self._cosine_similarity(query_embedding, document_embedding)
-            results.append(
+            similarity = max(0.0, min(1.0, 1 - float(distance)))
+
+            chunks.append(
                 {
-                    "id": ids[index] if index < len(ids) else None,
-                    "chunk": documents[index] if index < len(documents) else "",
-                    "metadata": metadatas[index] if index < len(metadatas) else {},
-                    "score": score,
+                    "id": ids[i],
+                    "chunk": documents[i],
+                    "metadata": metadatas[i] or {},
+                    "distance": float(distance),
+                    "score": similarity,
                 }
             )
 
-        results.sort(key=lambda item: item["score"], reverse=True)
-        return results[:top_k]
+        return chunks
 
-    def delete_document(self, filename: str) -> dict[str, Any]:
+    def delete_document(self, filename: str):
+
         collection = self._require_collection()
-        try:
-            collection.delete(where={"filename": filename})
-        except Exception as error:
-            raise ValueError("Invalid collection") from error
-        return {"deleted": True, "filename": filename}
+
+        collection.delete(
+            where={
+                "filename": filename
+            }
+        )
+
+        return {
+            "deleted": True,
+            "filename": filename,
+        }

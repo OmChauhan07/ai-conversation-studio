@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
+from typing import Any
+
+
+logger = logging.getLogger(__name__)
 
 
 class PromptService:
+    MAX_CONTEXT_CHARS = 8000
+
     SYSTEM_PROMPT = (
         "You are an enterprise AI assistant.\n\n"
         "Answer ONLY using the supplied context.\n\n"
@@ -16,7 +23,9 @@ class PromptService:
     )
 
     @staticmethod
-    def _normalize_chunks(retrieved_chunks: Iterable[dict]) -> list[str]:
+    def _normalize_chunks(retrieved_chunks: Iterable[dict[str, Any]]) -> list[str]:
+        """Deduplicate retrieved chunks while preserving order."""
+
         normalized = []
         seen = set()
 
@@ -34,9 +43,28 @@ class PromptService:
 
         return normalized
 
-    def build_prompt(self, question: str, retrieved_chunks: Iterable[dict]) -> str:
+    def build_prompt(self, question: str, retrieved_chunks: Iterable[dict[str, Any]]) -> str:
+        """Build a single grounded prompt from the question and retrieved chunks."""
+
         chunks = self._normalize_chunks(retrieved_chunks)
-        context = "\n\n---\n\n".join(chunks) if chunks else "No relevant context was retrieved."
+        separator = "\n\n---\n\n"
+
+        context_parts = []
+        context_length = 0
+
+        for chunk in chunks:
+            separator_length = len(separator) if context_parts else 0
+            projected_length = context_length + separator_length + len(chunk)
+
+            if projected_length > self.MAX_CONTEXT_CHARS:
+                break
+
+            context_parts.append(chunk)
+            context_length = projected_length
+
+        context = separator.join(context_parts) if context_parts else "No relevant context was retrieved."
+
+        logger.info("Prompt built with %s chunk(s)", len(context_parts))
 
         return (
             f"{self.SYSTEM_PROMPT}"

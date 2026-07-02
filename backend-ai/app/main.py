@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.config import GEMINI_MODEL_NAME, GROQ_MODEL_NAME
+
 from app.api.health import router as health_router
 from app.api.chat import router as chat_router
 from app.api.retrieval import router as retrieval_router
@@ -13,6 +15,9 @@ app = FastAPI(
     version="1.0.0",
     description="Backend AI Service"
 )
+
+print("Gemini Model:", GEMINI_MODEL_NAME)
+print("Groq Model:", GROQ_MODEL_NAME)
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,3 +41,4 @@ def root():
         "message": "AI Conversation Studio API",
         "status": "running"
     }
+
