@@ -41,63 +41,82 @@ class ChatService:
     async def chat(self, question: str):
         """Orchestrate retrieval, prompt building, and LLM generation."""
 
-        if not question or not question.strip():
-            raise ValueError("Message cannot be empty.")
+        try:
+            if not question or not question.strip():
+                raise ValueError("Message cannot be empty.")
 
-        question = question.strip()
-        logger.info("Question received: %s", question)
+            question = question.strip()
 
-        retrieved_chunks = await self.retrieval_service.search(
-            query=question,
-            top_k=5,
-            min_score=config.RETRIEVAL_MIN_SCORE,
-        )
+            logger.info("Starting chat request.")
+            logger.info("Question received: %s", question)
 
-        logger.info("Chunks retrieved: %s", len(retrieved_chunks))
-
-        prompt = self.prompt_service.build_prompt(
-            question,
-            retrieved_chunks,
-        )
-
-        logger.info("Prompt built")
-
-        start_time = time.perf_counter()
-        generation = await self.gemini_service.generate(prompt)
-        logger.info("LLM latency: %.3fs", time.perf_counter() - start_time)
-        logger.info("Provider selected: %s", generation.provider)
-
-        sources = []
-        seen = set()
-
-        for chunk in retrieved_chunks:
-
-            metadata = chunk.get("metadata", {})
-
-            source = {
-                "filename": metadata.get("original_name")
-                or metadata.get("filename"),
-
-                "chunk_number": metadata.get("chunk_number"),
-            }
-
-            key = (
-                source["filename"],
-                source["chunk_number"],
+            retrieved_chunks = await self.retrieval_service.search(
+                query=question,
+                top_k=5,
+                min_score=config.RETRIEVAL_MIN_SCORE,
             )
 
-            if key in seen:
-                continue
+            logger.info("Chunks retrieved: %s", len(retrieved_chunks))
 
-            seen.add(key)
-            sources.append(source)
+            prompt = self.prompt_service.build_prompt(
+                question,
+                retrieved_chunks,
+            )
 
-        return {
-            "answer": generation.text,
-            "sources": sources,
-            "metadata": {
-                "provider": generation.provider,
-                "model": generation.model,
-                "chunks_used": len(retrieved_chunks),
-            },
-        }
+            logger.info("Prompt built")
+
+            start_time = time.perf_counter()
+            generation = await self.gemini_service.generate(prompt)
+
+            logger.info(
+                "LLM latency: %.3fs",
+                time.perf_counter() - start_time,
+            )
+
+            logger.info(
+                "Provider selected: %s",
+                generation.provider,
+            )
+
+            sources = []
+            seen = set()
+
+            for chunk in retrieved_chunks:
+
+                metadata = chunk.get("metadata", {})
+
+                source = {
+                    "filename": metadata.get("original_name")
+                    or metadata.get("filename"),
+                    "chunk_number": metadata.get("chunk_number"),
+                }
+
+                key = (
+                    source["filename"],
+                    source["chunk_number"],
+                )
+
+                if key in seen:
+                    continue
+
+                seen.add(key)
+                sources.append(source)
+
+            logger.info(
+                "Chat completed successfully using %s.",
+                generation.provider,
+            )
+
+            return {
+                "answer": generation.text,
+                "sources": sources,
+                "metadata": {
+                    "provider": generation.provider,
+                    "model": generation.model,
+                    "chunks_used": len(retrieved_chunks),
+                },
+            }
+
+        except Exception:
+            logger.exception("Chat pipeline failed.")
+            raise

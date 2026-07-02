@@ -28,45 +28,82 @@ class RetrievalService:
         Search the vector database for the most relevant chunks.
         """
 
-        # Validate query
-        if not query or not query.strip():
-            raise ValueError("Query cannot be empty.")
+        try:
+            # Validate query
+            if not query or not query.strip():
+                raise ValueError("Query cannot be empty.")
 
-        # Generate embedding
-        query_embeddings = await run_in_threadpool(
-            self.embedding_service.generate_embeddings,
-            [query.strip()],
-        )
+            query = query.strip()
 
-        # Safely validate embeddings
-        if query_embeddings is None:
-            raise ValueError("Embedding generation failed.")
+            logger.info(
+                "Starting retrieval for query: %s",
+                query,
+            )
 
-        if len(query_embeddings) == 0:
-            raise ValueError("Embedding generation returned an empty result.")
+            # Generate embedding
+            query_embeddings = await run_in_threadpool(
+                self.embedding_service.generate_embeddings,
+                [query],
+            )
 
-        # Use the first embedding (single query)
-        query_embedding = query_embeddings[0]
+            if query_embeddings is None:
+                logger.error("Embedding generation returned None.")
+                raise ValueError("Embedding generation failed.")
 
-        # Search ChromaDB
-        chunks = await run_in_threadpool(self.chroma_service.search, query_embedding, top_k)
+            if len(query_embeddings) == 0:
+                logger.error("Embedding generation returned an empty list.")
+                raise ValueError(
+                    "Embedding generation returned an empty result."
+                )
 
-        # Ensure chunks is always a list
-        if chunks is None:
-            raise NoRelevantKnowledgeError("No relevant knowledge found.")
+            logger.info("Query embedding generated successfully.")
 
-        # Filter by similarity threshold
-        filtered_chunks = []
+            query_embedding = query_embeddings[0]
 
-        for chunk in chunks:
-            score = chunk.get("score", 0)
+            # Search ChromaDB
+            chunks = await run_in_threadpool(
+                self.chroma_service.search,
+                query_embedding,
+                top_k,
+            )
 
-            if score >= min_score:
-                filtered_chunks.append(chunk)
+            if chunks is None:
+                logger.warning("No chunks returned from ChromaDB.")
+                raise NoRelevantKnowledgeError(
+                    "No relevant knowledge found."
+                )
 
-        logger.info("Chunks retrieved: %s", len(filtered_chunks))
+            logger.info(
+                "Retrieved %d candidate chunks from ChromaDB.",
+                len(chunks),
+            )
 
-        if len(filtered_chunks) == 0:
-            raise NoRelevantKnowledgeError("No relevant knowledge found.")
+            filtered_chunks = []
 
-        return filtered_chunks
+            for chunk in chunks:
+                score = chunk.get("score", 0)
+
+                if score >= min_score:
+                    filtered_chunks.append(chunk)
+
+            logger.info(
+                "%d chunks remained after similarity filtering.",
+                len(filtered_chunks),
+            )
+
+            if len(filtered_chunks) == 0:
+                logger.warning(
+                    "No chunks met the similarity threshold (%.2f).",
+                    min_score,
+                )
+                raise NoRelevantKnowledgeError(
+                    "No relevant knowledge found."
+                )
+
+            logger.info("Retrieval completed successfully.")
+
+            return filtered_chunks
+
+        except Exception:
+            logger.exception("Retrieval pipeline failed.")
+            raise

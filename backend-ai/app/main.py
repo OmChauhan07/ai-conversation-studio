@@ -9,6 +9,9 @@ from app.api.retrieval import router as retrieval_router
 from app.api.knowledge import router as knowledge_router
 from app.api.prompts import router as prompts_router
 from app.api.evaluation import router as evaluation_router
+from app.core.logging import setup_logging
+
+setup_logging()
 
 app = FastAPI(
     title="AI Conversation Studio API",

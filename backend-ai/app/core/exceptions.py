@@ -19,3 +19,6 @@ class ProviderUnavailableError(AIBackendError):
 
 class InvalidModelError(AIBackendError):
     """Raised when a configured model name is invalid or unavailable."""
+
+class DocumentNotFoundError(AIBackendError):
+    """Raised when a requested document does not exist."""
